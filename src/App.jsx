@@ -345,8 +345,20 @@ async function exportPdf(title, sections) {
   const M = 48; let y = M;
   const page = doc.internal.pageSize;
   const nl = (h) => { y += h; if (y > page.getHeight() - M) { doc.addPage(); y = M; } };
-  doc.setFont("helvetica", "bold"); doc.setFontSize(20); doc.setTextColor(220, 0, 74);
-  doc.text("eclipse", M, y); nl(22);
+
+  // Draw Logo
+  const brandColor = [220, 0, 74];
+  doc.setDrawColor(...brandColor);
+  doc.setFillColor(...brandColor);
+  // Simple eclipse icon: a circle
+  doc.circle(M + 10, y + 10, 10, "F");
+  // A white cutout to make it look like an eclipse
+  doc.setFillColor(255, 255, 255);
+  doc.circle(M + 14, y + 10, 8, "F");
+
+  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(...brandColor);
+  doc.text("eclipse", M + 28, y + 16); nl(32);
+
   doc.setTextColor(28, 19, 40); doc.setFontSize(14);
   doc.text(title, M, y); nl(10);
   doc.setDrawColor(233, 230, 240); doc.line(M, y, page.getWidth() - M, y); nl(20);
@@ -1942,11 +1954,17 @@ const CSS = `
   font-size:13px;color:var(--muted);margin-top:3px;}
 .tab-on{border-color:transparent;background:var(--grad);color:#fff;}
 .tab-on .tab-sub{color:rgba(255,255,255,.85);}
-.sub-tabs{max-width:1080px;margin:18px auto 0;display:flex;gap:8px;flex-wrap:wrap;}
+.sub-tabs{max-width:1080px;margin:18px auto 0;display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
+.sub-tabs::-webkit-scrollbar{display:none;}
 .subtab{background:var(--card);border:1px solid var(--line);border-radius:999px;
-  padding:9px 20px;font-size:14.5px;font-weight:600;color:var(--ink);cursor:pointer;
-  font-family:'Inter',sans-serif;box-shadow:var(--shadow);}
+  padding:9px 16px;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;
+  font-family:'Inter',sans-serif;box-shadow:var(--shadow);white-space:nowrap;flex:1;text-align:center;}
+@media (max-width:600px){
+  .sub-tabs{gap:6px;}
+  .subtab{padding:8px 12px;font-size:12.5px;}
+}
 .subtab-on{border-color:var(--pink);background:var(--pink-soft);color:var(--pink-deep);}
+.subtab-on:focus-visible{outline-color:var(--pink);}
 
 /* settings */
 .settings{max-width:1080px;margin:16px auto 0;background:var(--card);border:1px solid var(--line);
@@ -1987,14 +2005,15 @@ const CSS = `
 .detail-toggle{display:inline-flex;align-items:center;gap:7px;background:none;border:0;padding:4px 0;
   color:var(--purple);font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
 .detail-card{margin-top:10px;background:var(--paper);border:1px solid var(--line);
-  border-radius:12px;padding:14px 16px;}
-.detail-title{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;color:var(--navy);
-  margin:0 0 8px;}
-.detail-card .chart-wrap{margin:0 0 16px;}
-.chart-caption{font-size:12.5px;color:var(--muted);margin:6px 0 0;line-height:1.5;max-width:62ch;}
-.detail-table-wrap{overflow-x:auto;}
-.detail-table{width:100%;border-collapse:collapse;font-size:12.5px;
-  font-variant-numeric:tabular-nums;}
+  border-radius:12px;padding:14px 16px;overflow:hidden;min-width:0;}
+.detail-table-wrap{overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:thin;}
+.detail-table{width:100%;border-collapse:collapse;font-size:12px;
+  font-variant-numeric:tabular-nums;min-width:500px;}
+@media (max-width:600px){
+  .panel{padding:18px 16px;}
+  .detail-card{padding:12px 10px;}
+  .detail-table{font-size:11px;min-width:450px;}
+}
 .detail-table th,.detail-table td{border:1px solid var(--line);padding:6px 8px;text-align:right;
   white-space:nowrap;}
 .detail-table thead th{background:var(--card);font-weight:600;color:var(--muted);text-align:right;}
@@ -2080,7 +2099,7 @@ const CSS = `
 .stat-num{font-family:'Sora',sans-serif;font-size:24px;font-weight:700;}
 .note{background:var(--warn-bg);border-left:3px solid var(--warn-edge);padding:11px 13px;
   border-radius:0 10px 10px 0;font-size:14px;margin:12px 0;}
-.chart-wrap{margin:6px 0 4px;}
+.chart-wrap{margin:6px 0 4px;min-width:0;}
 .mini-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;}
 .mini-table th,.mini-table td{border:1px solid var(--line);padding:5px 7px;text-align:center;}
 .mini-table th{background:var(--paper);font-weight:600;}
