@@ -156,13 +156,15 @@ function holmAdjust(pvals) {
   return adj;
 }
 
-// Two-proportion z-test (variant vs control). Pooled SE for z; unpooled for CI.
+// Two-proportion z-test (variant vs control). Unpooled SE for both z and CI to match displayed formulas.
 function twoPropTest(c1, n1, c2, n2, alpha, twoSided) {
   const p1 = c1 / n1, p2 = c2 / n2;
-  const pPool = (c1 + c2) / (n1 + n2);
-  const sePool = Math.sqrt(pPool * (1 - pPool) * (1 / n1 + 1 / n2));
-  const z = sePool > 0 ? (p2 - p1) / sePool : 0;
+  const seA = Math.sqrt(p1 * (1 - p1) / n1);
+  const seB = Math.sqrt(p2 * (1 - p2) / n2);
+  const seDiff = Math.sqrt(seA * seA + seB * seB);
+  const z = seDiff > 0 ? (p2 - p1) / seDiff : 0;
   const pRaw = twoSided ? 2 * (1 - normCdf(Math.abs(z))) : 1 - normCdf(z);
+
   // CI on relative uplift via log-ratio delta method (two-sided at 1−alpha)
   let ciLo = null, ciHi = null;
   if (p1 > 0 && p2 > 0) {
@@ -172,10 +174,8 @@ function twoPropTest(c1, n1, c2, n2, alpha, twoSided) {
     ciLo = Math.exp(lr - zq * seLog) - 1;
     ciHi = Math.exp(lr + zq * seLog) - 1;
   }
-  const seA = Math.sqrt(p1 * (1 - p1) / n1);
-  const seB = Math.sqrt(p2 * (1 - p2) / n2);
-  const seDiff = Math.sqrt(seA * seA + seB * seB);
-  // Per-variant CVR confidence intervals (absolute, what users read as "my rate is between X and Y")
+
+  // Per-variant CVR confidence intervals (absolute)
   const zCi = normInv(1 - alpha / 2);
   const ciA = [p1 - zCi * seA, p1 + zCi * seA];
   const ciB = [p2 - zCi * seB, p2 + zCi * seB];
@@ -985,7 +985,7 @@ function DetailedStats({ comparisons, confidence, twoTailed }) {
 
 function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   relUplift, pRaw, pAdj, corrected, ciBase, ciVar, baseCiLabel, varCiLabel,
-  confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride }) {
+  confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore }) {
   const alpha = 1 - confidence;
   // Significance decision uses the corrected p when there are 3+ variants.
   const decisionP = corrected ? pAdj : pRaw;
@@ -997,7 +997,7 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   }
   const confPct = Math.round(confidence * 100);
   const confValue = Number.isFinite(decisionP) ? Math.min(99.9, (1 - decisionP) * 100) : null;
-  const fmtCi = ciFmt || ((lo, hi) => `${fmtPct(lo)} to ${fmtPct(hi)}`);
+  const fmtCi = ciFmt || ((lo, hi) => `${fmtPct(lo)} – ${fmtPct(hi)}`);
 
   const statusText = sig ? "Statistically significant" : "Not yet significant";
   const who = name.split(" vs ")[0];
@@ -1042,14 +1042,18 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
         <div>
           <dt>p-value</dt>
           <dd className="num">{fmtP(pRaw)}</dd>
-          {corrected && <dd className="p-corrected">{fmtP(pAdj)} corrected for multiple variants</dd>}
+          {corrected && <dd className="p-corrected">{fmtP(pAdj)} corrected</dd>}
+        </div>
+        <div>
+          <dt>{zScore?.label || "Z-score"}</dt>
+          <dd className="num">{zScore?.value != null ? zScore.value.toFixed(4) : "—"}</dd>
         </div>
         {ciBase && (
-          <div><dt>{baseCiLabel} ({confPct}% CI)</dt>
+          <div className="span-2"><dt>{baseCiLabel} ({confPct}% CI)</dt>
             <dd className="num">{fmtCi(ciBase[0], ciBase[1])}</dd></div>
         )}
         {ciVar && (
-          <div><dt>{varCiLabel} ({confPct}% CI)</dt>
+          <div className="span-2"><dt>{varCiLabel} ({confPct}% CI)</dt>
             <dd className="num">{fmtCi(ciVar[0], ciVar[1])}</dd></div>
         )}
       </dl>
@@ -1324,15 +1328,16 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
                     <ResultCard
                       key={r.name}
                       name={`${r.name} vs Variant A (Control)`}
-                      baseLabel="Variant A (Control) CVR" varLabel={`${r.name} CVR`}
+                      baseLabel="Variant A (Control) Conversion Rate" varLabel={`${r.name} Conversion Rate`}
                       baseVal={fmtPct(r.p1)} varVal={fmtPct(r.p2)}
                       relUplift={r.relUplift}
                       pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
                       ciBase={r.ciA} ciVar={r.ciB}
-                      baseCiLabel="Variant A rate" varCiLabel={`${r.name} rate`}
+                      baseCiLabel="Variant A Conversion Rate" varCiLabel={`${r.name} Conversion Rate`}
                       addDays={r.addDays}
                       confidence={confidence} twoTailed={twoTailed}
                       metricNoun="converted"
+                      zScore={{ label: "Z-score", value: r.z }}
                     />
                   ))}
             </div>
@@ -1699,9 +1704,10 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   baseVal={fmtMoney(r.m1)} varVal={fmtMoney(r.m2)}
                   relUplift={r.relUplift} pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
                   ciBase={r.ciMeanA} ciVar={r.ciMeanB}
-                  baseCiLabel="Variant A RPV" varCiLabel={`${r.name} RPV`}
-                  ciFmt={(lo, hi) => `${fmtMoney(lo)} to ${fmtMoney(hi)}`}
+                  baseCiLabel="Variant A Revenue Per Visitor" varCiLabel={`${r.name} Revenue Per Visitor`}
+                  ciFmt={(lo, hi) => `${fmtMoney(lo)} – ${fmtMoney(hi)}`}
                   confidence={confidence} twoTailed={twoTailed}
+                  zScore={{ label: "T-score", value: r.t }}
                   meaningOverride={
                     (corrected ? r.pAdj : r.pRaw) < 1 - confidence
                       ? `The difference is large enough to be a real effect, not random fluctuation — ${r.name} ${r.relUplift >= 0 ? "generated more" : "generated less"} revenue per visitor than Variant A.`
@@ -1721,9 +1727,10 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   baseVal={fmtMoney(r.m1)} varVal={fmtMoney(r.m2)}
                   relUplift={r.relUplift} pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
                   ciBase={r.ciMeanA} ciVar={r.ciMeanB}
-                  baseCiLabel="Variant A AOV" varCiLabel={`${r.name} AOV`}
-                  ciFmt={(lo, hi) => `${fmtMoney(lo)} to ${fmtMoney(hi)}`}
+                  baseCiLabel="Variant A Average Order Value" varCiLabel={`${r.name} Average Order Value`}
+                  ciFmt={(lo, hi) => `${fmtMoney(lo)} – ${fmtMoney(hi)}`}
                   confidence={confidence} twoTailed={twoTailed}
+                  zScore={{ label: "T-score", value: r.t }}
                   meaningOverride={
                     (corrected ? r.pAdj : r.pRaw) < 1 - confidence
                       ? `The difference is large enough to be a real effect, not random fluctuation — among buyers, ${r.name} had a ${r.relUplift >= 0 ? "higher" : "lower"} average order value than Variant A.`
@@ -2045,12 +2052,13 @@ const CSS = `
 .result-head{display:flex;justify-content:space-between;align-items:center;gap:10px;
   flex-wrap:wrap;margin-bottom:12px;}
 .result-name{font-family:'Sora',sans-serif;font-size:15.5px;font-weight:700;margin:0;}
-.result-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px 16px;margin:0;}
-@media (max-width:680px){.result-grid{grid-template-columns:repeat(2,1fr);}}
+.result-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px 16px;margin:0;}
+@media (max-width:680px){.result-grid{grid-template-columns:1fr 1fr;}}
 .result-grid dt{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;
-  letter-spacing:.05em;}
-.result-grid dd{margin:3px 0 0;font-size:16px;font-weight:600;}
+  letter-spacing:.05em;line-height:1.2;margin-bottom:2px;}
+.result-grid dd{margin:0;font-size:16px;font-weight:600;white-space:nowrap;}
 .span-2{grid-column:span 2;}
+@media (max-width:480px){.span-2{grid-column:span 1;}}
 .result-conf{font-size:14px;margin:14px 0 4px;}
 .result-summary{font-size:13.5px;color:var(--muted);margin:0;max-width:64ch;}
 .p-corrected{font-size:11.5px;color:var(--muted);margin:2px 0 0;font-weight:400;}
