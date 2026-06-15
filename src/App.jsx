@@ -498,7 +498,7 @@ function Field({ label, hint, error, children, htmlFor }) {
   );
 }
 
-function Verdict({ kind }) {
+function Verdict({ kind, txtOverride }) {
   const map = {
     winner: { txt: "Significant winner", icon: "▲", cls: "v-win" },
     loser: { txt: "Significant loser", icon: "▼", cls: "v-lose" },
@@ -508,7 +508,7 @@ function Verdict({ kind }) {
   return (
     <span className={`verdict ${v.cls}`}>
       <span aria-hidden="true" className="verdict-icon">{v.icon}</span>
-      {v.txt}
+      {txtOverride || v.txt}
     </span>
   );
 }
@@ -987,7 +987,6 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   relUplift, pRaw, pAdj, corrected, ciBase, ciVar, baseCiLabel, varCiLabel,
   confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore }) {
   const alpha = 1 - confidence;
-  // Significance decision uses the corrected p when there are 3+ variants.
   const decisionP = corrected ? pAdj : pRaw;
   const sig = Number.isFinite(decisionP) && decisionP < alpha;
   let kind = "ns";
@@ -999,7 +998,6 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   const confValue = Number.isFinite(decisionP) ? Math.min(99.9, (1 - decisionP) * 100) : null;
   const fmtCi = ciFmt || ((lo, hi) => `${fmtPct(lo)} – ${fmtPct(hi)}`);
 
-  const statusText = sig ? "Statistically significant" : "Not yet significant";
   const who = name.split(" vs ")[0];
   const meaning = meaningOverride || (
     kind === "winner"
@@ -1009,65 +1007,76 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
       : `There's not enough evidence yet to be sure this is a real difference — it could still be random fluctuation.`);
 
   return (
-    <article className="result-card">
-      <header className="result-head">
-        <h4 className="result-name">{name}</h4>
-        <Verdict kind={kind} />
-      </header>
+    <article className={`result-card-v2 v2-${kind}`}>
+      <div className="v2-header">
+        <div className="v2-verdict-wrap">
+          <Verdict kind={kind} />
+          <h4 className="v2-title">{name}</h4>
+        </div>
+        <div className="v2-conf-pill">
+          <span className="v2-conf-val">{confValue != null ? `${confValue.toFixed(1)}%` : "—"}</span>
+          <span className="v2-conf-label">Confidence</span>
+        </div>
+      </div>
 
-      <dl className="status-block">
-        <div className="status-row">
-          <dt>Status</dt>
-          <dd>{statusText}</dd>
-        </div>
-        <div className="status-row">
-          <dt>Confidence</dt>
-          <dd>
-            {confValue != null ? `${confValue.toFixed(1)}%` : "—"}
-            <span className="status-sub">
-              {sig ? `above your ${confPct}% target` : `below your ${confPct}% target`}
-            </span>
-          </dd>
-        </div>
-        <div className="status-row">
-          <dt>What this means</dt>
-          <dd className="status-meaning">{meaning}</dd>
-        </div>
-      </dl>
+      <p className="v2-meaning">{meaning}</p>
 
-      <dl className="result-grid">
-        <div><dt>{baseLabel}</dt><dd className="num">{baseVal}</dd></div>
-        <div><dt>{varLabel}</dt><dd className="num">{varVal}</dd></div>
-        <div><dt>Relative uplift (vs A)</dt><dd className="num">{fmtSignedPct(relUplift)}</dd></div>
-        <div>
-          <dt>p-value</dt>
-          <dd className="num">{fmtP(pRaw)}</dd>
-          {corrected && <dd className="p-corrected">{fmtP(pAdj)} corrected</dd>}
+      <div className="v2-metrics">
+        <div className="v2-metric-main">
+          <div className="v2-m-label">Relative Uplift</div>
+          <div className={`v2-m-val ${relUplift >= 0 ? 'text-win' : 'text-lose'}`}>
+            {fmtSignedPct(relUplift)}
+          </div>
         </div>
-        <div>
-          <dt>{zScore?.label || "Z-score"}</dt>
-          <dd className="num">{zScore?.value != null ? zScore.value.toFixed(4) : "—"}</dd>
+        <div className="v2-metric-grid">
+          <div className="v2-m-item">
+            <span className="v2-m-i-label">{baseLabel || "Control"}</span>
+            <span className="v2-m-i-val">{baseVal}</span>
+          </div>
+          <div className="v2-m-item">
+            <span className="v2-m-i-label">{varLabel || "Variant"}</span>
+            <span className="v2-m-i-val">{varVal}</span>
+          </div>
         </div>
-        {ciBase && (
-          <div className="span-2"><dt>{baseCiLabel} ({confPct}% CI)</dt>
-            <dd className="num">{fmtCi(ciBase[0], ciBase[1])}</dd></div>
-        )}
-        {ciVar && (
-          <div className="span-2"><dt>{varCiLabel} ({confPct}% CI)</dt>
-            <dd className="num">{fmtCi(ciVar[0], ciVar[1])}</dd></div>
-        )}
-      </dl>
+      </div>
+
+      <div className="v2-details">
+        <div className="v2-d-row">
+          <div className="v2-d-col">
+            <span className="v2-d-label">p-value</span>
+            <span className="v2-d-val">{fmtP(pRaw)} {corrected && <small>(adj)</small>}</span>
+          </div>
+          <div className="v2-d-col">
+            <span className="v2-d-label">{zScore?.label || "Z-score"}</span>
+            <span className="v2-d-val">{zScore?.value != null ? zScore.value.toFixed(4) : "—"}</span>
+          </div>
+          {ciBase && (
+            <div className="v2-d-col">
+              <span className="v2-d-label">{baseCiLabel || "Control"} ({confPct}% CI)</span>
+              <span className="v2-d-val">{fmtCi(ciBase[0], ciBase[1])}</span>
+            </div>
+          )}
+          {ciVar && (
+            <div className="v2-d-col">
+              <span className="v2-d-label">{varCiLabel || "Variant"} ({confPct}% CI)</span>
+              <span className="v2-d-val">{fmtCi(ciVar[0], ciVar[1])}</span>
+            </div>
+          )}
+        </div>
+      </div>
 
       {addDays && !sig && (
-        <p className="result-days">
-          {addDays.reachable
-            ? (addDays.moreDays === 0
-                ? "Enough data has now been collected for this effect size."
-                : `At the current traffic rate, about ${fmtInt(addDays.moreDays)} more day${addDays.moreDays === 1 ? "" : "s"} would be needed to confirm an uplift this size (80% power).`)
-            : (addDays.reason === "not-winning"
-                ? "This variant isn't currently ahead of Variant A, so more time won't make it a winner."
-                : "An uplift this small is impractical to confirm with realistic traffic.")}
-        </p>
+        <div className="v2-footer">
+          <p className="result-days">
+            {addDays.reachable
+              ? (addDays.moreDays === 0
+                  ? "Enough data has now been collected for this effect size."
+                  : `At the current traffic rate, about ${fmtInt(addDays.moreDays)} more day${addDays.moreDays === 1 ? "" : "s"} would be needed to confirm an uplift this size (80% power).`)
+              : (addDays.reason === "not-winning"
+                  ? "This variant isn't currently ahead of Variant A, so more time won't make it a winner."
+                  : "An uplift this small is impractical to confirm with realistic traffic.")}
+          </p>
+        </div>
       )}
     </article>
   );
@@ -1079,37 +1088,66 @@ function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw
   // verdict: confirmed non-inferior / worse than margin / inconclusive
   let kind, verdictTxt;
   if (confirmed) {
-    kind = "v-win"; verdictTxt = "Non-inferiority confirmed";
+    kind = "winner"; verdictTxt = "Non-inferiority confirmed";
   } else if (upperBound < -margin) {
-    // even the optimistic end of the confidence interval is past the margin
-    kind = "v-lose"; verdictTxt = "Worse than the margin";
+    kind = "loser"; verdictTxt = "Worse than the margin";
   } else {
-    kind = "v-ns"; verdictTxt = "Not confirmed";
+    kind = "ns"; verdictTxt = "Not confirmed";
   }
+
+  const meaning = confirmed
+    ? `At the ${confPct}% confidence level, you can be confident ${name} is not worse than control by more than your ${fmtPct(marginRel)} margin.`
+    : (kind === "loser"
+        ? `${name} appears to be worse than control by more than your ${fmtPct(marginRel)} margin.`
+        : `Not enough evidence to confirm ${name} stays within your ${fmtPct(marginRel)} margin. This doesn't mean it's worse — only that the data can't rule out a drop bigger than the margin.`);
+
   return (
-    <article className="result-card">
-      <header className="result-head">
-        <h4 className="result-name">{name}</h4>
-        <span className={`verdict ${kind}`}>
-          <span aria-hidden="true" className="verdict-icon">
-            {kind === "v-win" ? "▲" : kind === "v-lose" ? "▼" : "○"}
-          </span>
-          {verdictTxt}
-        </span>
-      </header>
-      <dl className="result-grid">
-        <div><dt>Variant A (Control) CVR</dt><dd className="num">{fmtPct(p1)}</dd></div>
-        <div><dt>{name} CVR</dt><dd className="num">{fmtPct(p2)}</dd></div>
-        <div><dt>Relative difference</dt><dd className="num">{fmtSignedPct(relDiff)}</dd></div>
-        <div><dt>Acceptable margin</dt><dd className="num">−{fmtPct(marginRel)}</dd></div>
-      </dl>
-      <p className="result-conf">
-        {confirmed
-          ? <>At the {confPct}% confidence level, you can be confident <strong>{name} is not worse than control by more than your {fmtPct(marginRel)} margin</strong>.</>
-          : (kind === "v-lose"
-              ? <>{name} appears to be <strong>worse than control by more than your {fmtPct(marginRel)} margin</strong>.</>
-              : <><strong>Not enough evidence</strong> to confirm {name} stays within your {fmtPct(marginRel)} margin. This doesn't mean it's worse — only that the data can't rule out a drop bigger than the margin. More traffic would narrow it down.</>)}
-      </p>
+    <article className={`result-card-v2 v2-${kind}`}>
+      <div className="v2-header">
+        <div className="v2-verdict-wrap">
+          <Verdict kind={kind === 'winner' ? 'winner' : kind === 'loser' ? 'loser' : 'ns'} 
+                   txtOverride={verdictTxt} />
+          <h4 className="v2-title">{name}</h4>
+        </div>
+        <div className="v2-conf-pill">
+          <span className="v2-conf-val">{fmtPct(1 - pRaw, 1)}</span>
+          <span className="v2-conf-label">Confidence</span>
+        </div>
+      </div>
+
+      <p className="v2-meaning">{meaning}</p>
+
+      <div className="v2-metrics">
+        <div className="v2-metric-main">
+          <div className="v2-m-label">Relative Difference</div>
+          <div className={`v2-m-val ${relDiff >= 0 ? 'text-win' : 'text-lose'}`}>
+            {fmtSignedPct(relDiff)}
+          </div>
+        </div>
+        <div className="v2-metric-grid">
+          <div className="v2-m-item">
+            <span className="v2-m-i-label">Control CVR</span>
+            <span className="v2-m-i-val">{fmtPct(p1)}</span>
+          </div>
+          <div className="v2-m-item">
+            <span className="v2-m-i-label">Variant CVR</span>
+            <span className="v2-m-i-val">{fmtPct(p2)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="v2-details">
+        <div className="v2-d-row">
+          <div className="v2-d-col">
+            <span className="v2-d-label">Acceptable Margin</span>
+            <span className="v2-d-val">−{fmtPct(marginRel)}</span>
+          </div>
+          <div className="v2-d-col">
+            <span className="v2-d-label">p-value</span>
+            <span className="v2-d-val">{fmtP(pRaw)}</span>
+          </div>
+        </div>
+      </div>
     </article>
   );
 }
@@ -2046,6 +2084,42 @@ const CSS = `
 .mini-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;}
 .mini-table th,.mini-table td{border:1px solid var(--line);padding:5px 7px;text-align:center;}
 .mini-table th{background:var(--paper);font-weight:600;}
+
+.result-card-v2{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin:16px 0;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.v2-winner{border-left:5px solid var(--win);}
+.v2-loser{border-left:5px solid var(--lose);}
+.v2-ns{border-left:5px solid var(--ns);}
+
+.v2-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;}
+.v2-verdict-wrap{display:flex;flex-direction:column;gap:8px;}
+.v2-title{font-family:'Sora',sans-serif;font-size:14px;font-weight:600;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.05em;}
+.v2-conf-pill{background:var(--paper);padding:8px 16px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:100px;border:1px solid var(--line);}
+.v2-conf-val{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:var(--ink);line-height:1;}
+.v2-conf-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-top:4px;}
+
+.v2-meaning{font-size:15px;line-height:1.5;color:var(--ink);margin:0 0 24px;max-width:65ch;}
+
+.v2-metrics{display:flex;gap:24px;align-items:center;background:var(--paper);padding:20px;border-radius:16px;margin-bottom:20px;flex-wrap:wrap;}
+.v2-metric-main{flex:1;min-width:180px;}
+.v2-m-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;}
+.v2-m-val{font-family:'Sora',sans-serif;font-size:32px;font-weight:800;line-height:1;}
+.v2-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;min-width:240px;border-left:1px solid var(--line);padding-left:24px;}
+@media (max-width:600px){.v2-metric-grid{border-left:0;padding-left:0;padding-top:16px;border-top:1px solid var(--line);}}
+.v2-m-item{display:flex;flex-direction:column;gap:4px;}
+.v2-m-i-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;}
+.v2-m-i-val{font-family:'Sora',sans-serif;font-size:18px;font-weight:700;color:var(--ink);}
+
+.v2-details{border-top:1px solid var(--line);padding-top:16px;}
+.v2-d-row{display:flex;gap:24px;flex-wrap:wrap;}
+.v2-d-col{display:flex;flex-direction:column;gap:2px;}
+.v2-d-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;}
+.v2-d-val{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;}
+.span-full{flex-basis:100%;}
+
+.text-win{color:var(--win);}
+.text-lose{color:var(--lose);}
+
+.v2-footer{margin-top:16px;}
 
 .result-card{border:1px solid var(--line);border-radius:14px;padding:16px 18px;
   margin:12px 0;background:#fff;box-shadow:var(--shadow);}
