@@ -463,6 +463,10 @@ const EXPLAINERS = {
     label: "What is a non-inferiority test?",
     body: "Most tests ask 'is the variant better?'. A non-inferiority test asks the opposite: 'can I be confident the variant is NOT meaningfully worse?'. You'd use it when you want to ship a change for some other reason — simpler code, lower cost, a nicer design — and just need to confirm it doesn't hurt conversion by more than an amount you can live with. You set that amount as the margin. Example: a 1% margin means you'll accept the variant as long as you're confident it isn't more than 1% (relative) below control.",
   },
+  winsorize: {
+    label: "What is capping outliers?",
+    body: "Revenue data often contains 'whales' — a few customers who spend 10x or 100x more than the average. These outliers can skew your results and make a variant look like a winner just because one person made a huge purchase. Capping (Winsorizing) replaces these extreme values with a lower threshold (the 99th percentile), making your statistical test more robust and reliable.",
+  },
 };
 
 /* ─────────────────────── Shared UI pieces ─────────────────────── */
@@ -692,7 +696,7 @@ function PreTest({ confidence, twoTailed }) {
 
   const alpha = 1 - confidence;
   const comparisons = k - 1;
-  const alphaAdj = alpha / comparisons;
+  const alphaAdj = alpha / Math.max(1, comparisons);
 
   const inputsValid = Object.keys(errors).length === 0 && allocOk;
   let result = null;
@@ -1340,17 +1344,23 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
                    })];
               downloadBlob(toCsv([...head, ...body]), `eclipse-cvr-${stamp()}.csv`, "text/csv");
             }}
-            onPdf={() => exportPdf("Conversion rate analysis", [
-              { heading: "Setup", lines: [
-                isNonInf ? `Non-inferiority test, margin ${fmtPct(marginRel)}` : `Z-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}`,
-                `Confidence: ${Math.round(confidence*100)}%`,
-                srm ? (srm.flagged ? `SRM check: FLAGGED (p=${fmtP(srm.p)}) — results may be unreliable` : `SRM check: healthy (p=${fmtP(srm.p)})`) : "",
-              ].filter(Boolean)},
-              { heading: "Data", lines: parsed.map((r, i) => `${labels[i]}: ${fmtInt(r.v)} visitors, ${fmtInt(r.c)} conversions (CVR ${fmtPct(r.c/r.v)})`) },
-              { heading: "Results", lines: isNonInf
-                ? noninfResults.map(r => `${r.name} vs Variant A: relative diff ${fmtSignedPct(r.relDiff)} — ${(r.pRaw < 1 - confidence) ? "Non-inferiority confirmed" : (r.upperBound < -r.margin ? "Worse than margin" : "Not confirmed")}`)
-                : results.map(r => { const dp = corrected ? r.pAdj : r.pRaw; return `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)} uplift, p=${fmtP(r.pRaw)}${corrected ? ` (corrected ${fmtP(r.pAdj)})` : ""}, ${Math.min(99.9,(1-dp)*100).toFixed(1)}% confidence — ${(dp < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`; }) },
-            ])}
+            onPdf={() => {
+              const currentResults = results;
+              const currentNoninfResults = noninfResults;
+              const currentParsed = parsed;
+              const currentLabels = labels;
+              exportPdf("Conversion rate analysis", [
+                { heading: "Setup", lines: [
+                  isNonInf ? `Non-inferiority test, margin ${fmtPct(marginRel)}` : `Z-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}`,
+                  `Confidence: ${Math.round(confidence*100)}%`,
+                  srm ? (srm.flagged ? `SRM check: FLAGGED (p=${fmtP(srm.p)}) — results may be unreliable` : `SRM check: healthy (p=${fmtP(srm.p)})`) : "",
+                ].filter(Boolean)},
+                { heading: "Data", lines: currentParsed.map((r, i) => `${currentLabels[i]}: ${fmtInt(r.v)} visitors, ${fmtInt(r.c)} conversions (CVR ${fmtPct(r.c/r.v)})`) },
+                { heading: "Results", lines: isNonInf
+                  ? currentNoninfResults?.map(r => `${r.name} vs Variant A: relative diff ${fmtSignedPct(r.relDiff)} — ${(r.pRaw < 1 - confidence) ? "Non-inferiority confirmed" : (r.upperBound < -r.margin ? "Worse than margin" : "Not confirmed")}`)
+                  : currentResults?.map(r => { const dp = corrected ? r.pAdj : r.pRaw; return `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)} uplift, p=${fmtP(r.pRaw)}${corrected ? ` (corrected ${fmtP(r.pAdj)})` : ""}, ${Math.min(99.9,(1-dp)*100).toFixed(1)}% confidence — ${(dp < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`; }) },
+              ]);
+            }}
           />
         )}
         {!ready && <p className="empty">Fill in your test data above and press Calculate to see results.</p>}
@@ -1449,9 +1459,10 @@ function parseRevenueFile(text) {
   text.split(/\r?\n/).forEach((raw, i) => {
     const line = raw.trim();
     if (!line) return;
-    // Split by tab or semicolon first; if neither, try comma
+    // Split by tab or semicolon first; if neither, try comma; if neither, try space
     let cells = line.split(/[\t;]+/);
     if (cells.length === 1) cells = line.split(',');
+    if (cells.length === 1) cells = line.split(/\s+/);
     // Use last cell as revenue candidate
     let cell = cells[cells.length - 1].trim().replace(/[£$€\s]/g, '');
     // Strip thousand-separators only when format looks numeric-with-commas
@@ -1566,7 +1577,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     };
 
     analysis = {
-      skewFlag, p99,
+      skewFlag, p99, armStats,
       srm: srmCheck(armData.map(a => a.visitors), alloc.map(Number)),
       rpv: buildMetric('rpv'),
       aov: buildMetric('aov'),
@@ -1675,8 +1686,11 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
         ))}
 
         {analysis && analysis.skewFlag && (
-          <div className="note" role="status">
-            Order revenue data is heavily skewed or has extreme outliers — a few large orders may dominate the averages.
+          <div className="note outlier-note" role="status">
+            <div className="outlier-header">
+              Order revenue data is heavily skewed or has extreme outliers — a few large orders may dominate the averages.
+              <Explainer id="winsorize" inline />
+            </div>
             <label className="check-row">
               <input type="checkbox" checked={winsorize}
                 onChange={e => setWinsorize(e.target.checked)} />
@@ -1685,11 +1699,16 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
           </div>
         )}
         {analysis && !analysis.skewFlag && (
-          <label className="check-row">
-            <input type="checkbox" checked={winsorize}
-              onChange={e => setWinsorize(e.target.checked)} />
-            Cap order value outliers at the 99th percentile (optional)
-          </label>
+          <div className="outlier-wrap">
+            <div className="outlier-header">
+              <label className="check-row">
+                <input type="checkbox" checked={winsorize}
+                  onChange={e => setWinsorize(e.target.checked)} />
+                Cap order value outliers at the 99th percentile (optional)
+              </label>
+              <Explainer id="winsorize" inline />
+            </div>
+          </div>
         )}
 
         <Field label="Test duration in days (optional)" htmlFor="rev-days">
@@ -1741,18 +1760,22 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               ];
               downloadBlob(toCsv(rows), `eclipse-revenue-${stamp()}.csv`, "text/csv");
             }}
-            onPdf={() => exportPdf("Revenue analysis", [
-              { heading: "Setup", lines: [
-                `Welch's t-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}${winsorize ? ", outliers capped at 99th percentile" : ""}`,
-                `Confidence: ${Math.round(confidence*100)}%`,
-                analysis.srm ? (analysis.srm.flagged ? `SRM check: FLAGGED (p=${fmtP(analysis.srm.p)})` : `SRM check: healthy (p=${fmtP(analysis.srm.p)})`) : "",
-              ].filter(Boolean)},
-              { heading: "Data", lines: analysis.armStats.map(a => `${a.name}: ${fmtInt(a.rpv.n)} visitors, ${fmtInt(a.aov.n)} orders, RPV ${fmtMoney(a.rpv.m)}, AOV ${fmtMoney(a.aov.m)}`) },
-              { heading: "Revenue per visitor", lines: analysis.rpv.map(r =>
-                `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)}, p=${fmtP(r.pAdj)} — ${(r.pAdj < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`) },
-              { heading: "Average order value", lines: analysis.aov.map(r =>
-                `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)}, p=${fmtP(r.pAdj)} — ${(r.pAdj < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`) },
-            ])}
+            onPdf={() => {
+              const currentAnalysis = analysis;
+              if (!currentAnalysis) return;
+              exportPdf("Revenue analysis", [
+                { heading: "Setup", lines: [
+                  `Welch's t-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}${winsorize ? ", outliers capped at 99th percentile" : ""}`,
+                  `Confidence: ${Math.round(confidence*100)}%`,
+                  currentAnalysis.srm ? (currentAnalysis.srm.flagged ? `SRM check: FLAGGED (p=${fmtP(currentAnalysis.srm.p)})` : `SRM check: healthy (p=${fmtP(currentAnalysis.srm.p)})`) : "",
+                ].filter(Boolean)},
+                { heading: "Data", lines: currentAnalysis.armStats.map(a => `${a.name}: ${fmtInt(a.rpv.n)} visitors, ${fmtInt(a.aov.n)} orders, RPV ${fmtMoney(a.rpv.m)}, AOV ${fmtMoney(a.aov.m)}`) },
+                { heading: "Revenue per visitor", lines: currentAnalysis.rpv.map(r =>
+                  `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)}, p=${fmtP(r.pAdj)} — ${(r.pAdj < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`) },
+                { heading: "Average order value", lines: currentAnalysis.aov.map(r =>
+                  `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)}, p=${fmtP(r.pAdj)} — ${(r.pAdj < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`) },
+              ]);
+            }}
           />
         )}
         {!analysis && <p className="empty">Add your data above and press Calculate to see revenue per visitor and average order value results.</p>}
@@ -2079,6 +2102,11 @@ const CSS = `
 .btn:hover{background:var(--pink-deep);}
 .upload-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 6px;align-items:center;}
 .file-name{font-size:13px;color:var(--muted);}
+.outlier-wrap{margin:12px 0 24px;}
+.outlier-header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.outlier-header .explainer{margin:0;}
+.outlier-note{margin:12px 0 24px !important;}
+.outlier-note .outlier-header{margin-bottom:8px;}
 .check-row{display:flex;gap:9px;align-items:flex-start;font-size:14px;margin-top:8px;cursor:pointer;}
 .check-row input{margin-top:3px;width:16px;height:16px;accent-color:var(--pink);}
 .format-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:6px 0 4px;}
