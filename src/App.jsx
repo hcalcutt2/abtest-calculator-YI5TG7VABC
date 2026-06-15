@@ -1475,21 +1475,27 @@ function parseRevenueFile(text) {
 function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
   const labels = makeLabels(k);
 
-  // Per-variant local state: visitor override, file parse result, file name
+  // Per-variant local state: visitor/conversion overrides, file parse result, file name
   const [visitorOverrides, setVisitorOverrides] = useState(Array(8).fill(''));
+  const [convOverrides, setConvOverrides]       = useState(Array(8).fill(''));
   const [fileParsed, setFileParsed]             = useState(Array(8).fill(null)); // {values,errors,name}
   const [winsorize, setWinsorize]               = useState(false);
   const [calculated, setCalculated]             = useState(false);
   const fileRefs = useRef(Array.from({ length: 8 }, () => null));
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [visitorOverrides, fileParsed, winsorize, alloc, k, confidence, twoTailed, durationDays, rows]);
+    [visitorOverrides, convOverrides, fileParsed, winsorize, alloc, k, confidence, twoTailed, durationDays, rows]);
 
-  // Effective visitors per variant: override takes priority, then CVR tab value
+  // Effective visitors/conversions per variant: override takes priority, then CVR tab value
   const effectiveVisitors = labels.map((_, i) => {
     const ov = visitorOverrides[i];
     if (ov !== '') return ov;
     return rows[i] ? rows[i].visitors : '';
+  });
+  const effectiveConversions = labels.map((_, i) => {
+    const ov = convOverrides[i];
+    if (ov !== '') return ov;
+    return rows[i] ? rows[i].conversions : '';
   });
 
   // Parse results
@@ -1500,7 +1506,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     const visitorsOk = Number.isInteger(visitors) && visitors > 0;
     const orders = fp ? fp.values : [];
     const orderCount = orders.length;
-    const convRaw = rows[i] ? rows[i].conversions : '';
+    const convRaw = effectiveConversions[i];
     const convNum = Number(convRaw);
     const convEntered = convRaw !== '' && Number.isInteger(convNum) && convNum > 0;
 
@@ -1508,9 +1514,9 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     let mismatch = null;
     if (convEntered && orderCount > 0 && orderCount !== convNum) {
       if (orderCount > convNum)
-        mismatch = `The file contains ${fmtInt(orderCount)} orders but ${fmtInt(convNum)} conversions were entered on the Conversion rate tab. This could mean a wrong date range, duplicate orders, or multiple purchases per visitor.`;
+        mismatch = `The file contains ${fmtInt(orderCount)} orders but ${fmtInt(convNum)} conversions are recorded above. This could mean a wrong date range, duplicate orders, or multiple purchases per visitor.`;
       else
-        mismatch = `The file contains ${fmtInt(orderCount)} orders but ${fmtInt(convNum)} conversions were entered on the Conversion rate tab. Some orders may be missing from the export, or your conversion definition doesn't map 1:1 to individual orders.`;
+        mismatch = `The file contains ${fmtInt(orderCount)} orders but ${fmtInt(convNum)} conversions are recorded above. Some orders may be missing from the export, or your conversion definition doesn't map 1:1 to individual orders.`;
     }
 
     let visitorsError = null;
@@ -1592,20 +1598,34 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
         </Field>
         <Explainer id="srm" />
 
-        <h3 className="block-title">Traffic per variant</h3>
-        <p className="field-hint">Total visitors for each variant. Pulled from the Conversion rate tab if entered there — edit here if needed.</p>
-        <div className="traffic-block">
+        <h3 className="block-title">Traffic & Conversions per variant</h3>
+        <p className="field-hint">Pulled from the Conversion rate tab if entered there — edit here to fix mismatches with your files.</p>
+        <div className="traffic-block-v2">
           {armData.map((a, i) => (
-            <Field key={i} label={a.name} htmlFor={`rev-vis-${i}`}>
-              <input
-                id={`rev-vis-${i}`}
-                className="input"
-                type="number" min="1" step="1"
-                value={effectiveVisitors[i]}
-                onChange={e => setVisitorOverrides(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}
-              />
+            <div key={i} className="traffic-arm">
+              <div className="traffic-arm-name">{a.name}</div>
+              <div className="traffic-arm-fields">
+                <Field label="Visitors" htmlFor={`rev-vis-${i}`}>
+                  <input
+                    id={`rev-vis-${i}`}
+                    className="input"
+                    type="number" min="1" step="1"
+                    value={effectiveVisitors[i]}
+                    onChange={e => setVisitorOverrides(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}
+                  />
+                </Field>
+                <Field label="Conversions" htmlFor={`rev-conv-${i}`}>
+                  <input
+                    id={`rev-conv-${i}`}
+                    className="input"
+                    type="number" min="0" step="1"
+                    value={effectiveConversions[i]}
+                    onChange={e => setConvOverrides(prev => { const n=[...prev]; n[i]=e.target.value; return n; })}
+                  />
+                </Field>
+              </div>
               {a.visitorsError && <div className="field-error" role="alert">{a.visitorsError}</div>}
-            </Field>
+            </div>
           ))}
         </div>
 
@@ -2196,6 +2216,11 @@ const CSS = `
 
 .traffic-row{display:flex;gap:8px;align-items:center;}
 .block-title{font-family:'Sora',sans-serif;font-weight:700;font-size:15px;margin:20px 0 4px;color:var(--ink);}
+.traffic-block-v2{display:flex;flex-direction:column;gap:16px;margin-bottom:12px;}
+.traffic-arm{background:var(--paper);padding:12px 16px;border-radius:12px;border:1px solid var(--line);}
+.traffic-arm-name{font-weight:700;font-size:14px;color:var(--navy);margin-bottom:10px;font-family:'Sora',sans-serif;}
+.traffic-arm-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media (max-width:480px){.traffic-arm-fields{grid-template-columns:1fr;}}
 .traffic-block{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:6px;}
 .arm-orders{font-family:'Inter',sans-serif;font-weight:400;font-size:12.5px;color:var(--muted);margin-left:auto;}
 .avatar-dot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--avatar);color:var(--purple-deep);font-family:'Sora',sans-serif;font-weight:700;font-size:13px;flex:none;}
