@@ -1,5 +1,4 @@
 import React, { useMemo, useRef, useState } from "react";
-import Papa from "papaparse";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as ChartTip, ResponsiveContainer,
@@ -57,13 +56,13 @@ function normInv(p) {
 
 // log Gamma (Lanczos)
 function logGamma(x) {
-  const g = [76.18009172947146, -86.50532032941677, 24.01409824083091,
-    -1.231739572450155, 0.1208650973866179e-2, -0.5395239384953e-5];
+  const g = [76.180091729471, -86.505320329416, 24.01409824083,
+    -1.23173957245, 0.0012086509738, -0.000005395239];
   let xx = x, y = x, tmp = x + 5.5;
   tmp -= (xx + 0.5) * Math.log(tmp);
   let ser = 1.000000000190015;
   for (let j = 0; j < 6; j++) ser += g[j] / ++y;
-  return -tmp + Math.log(2.5066282746310005 * ser / xx);
+  return -tmp + Math.log(2.506628274631 * ser / xx);
 }
 
 // Regularised lower incomplete gamma P(a, x) — for chi-square CDF
@@ -537,15 +536,6 @@ function SegControl({ legend, options, value, onChange, name, explainerId }) {
   );
 }
 
-function EclipseMark({ size = 30, color = "var(--pink)" }) {
-  // Traced from the Eclipse brand icon: 'e' with the crescent eclipse cut
-  return (
-    <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" className="brand-mark">
-      <path d="M 16.57 85.61 L 12.29 85.61 L 12.14 81.28 L 10.00 81.15 L 9.86 79.05 L 7.57 78.77 L 7.57 74.58 L 5.29 74.30 L 5.29 70.11 L 3.00 69.83 L 3.00 61.17 L 0.71 60.89 L 0.71 41.06 L 3.00 40.78 L 3.00 32.12 L 5.29 31.84 L 5.29 27.65 L 7.57 27.37 L 7.57 23.18 L 9.71 23.04 L 9.86 20.95 L 12.14 20.67 L 12.14 16.48 L 14.29 16.34 L 14.57 14.11 L 16.57 14.11 L 16.71 16.20 L 19.00 16.48 L 19.14 38.69 L 21.29 38.55 L 21.29 34.36 L 23.57 34.08 L 23.57 29.89 L 25.71 29.75 L 26.00 27.51 L 32.57 27.51 L 32.71 40.78 L 35.00 41.06 L 35.14 43.16 L 37.29 43.02 L 37.43 40.92 L 60.00 40.92 L 60.29 43.16 L 62.29 43.16 L 62.57 40.92 L 64.57 40.92 L 64.86 43.16 L 69.14 43.16 L 69.43 40.92 L 78.29 40.92 L 78.43 36.59 L 76.14 36.31 L 76.14 32.12 L 74.00 31.98 L 73.86 29.89 L 71.71 29.75 L 71.57 27.65 L 69.29 27.37 L 69.29 25.42 L 67.00 25.14 L 66.86 23.04 L 62.57 23.04 L 62.29 20.81 L 53.43 20.81 L 53.14 18.58 L 44.29 18.58 L 44.00 20.81 L 37.43 20.81 L 37.14 23.04 L 32.71 22.91 L 32.71 3.07 L 41.71 2.93 L 42.00 0.70 L 57.71 0.70 L 58.00 2.93 L 66.86 2.93 L 67.14 5.17 L 73.71 5.17 L 73.86 7.26 L 76.00 7.40 L 76.29 9.64 L 80.57 9.64 L 80.71 11.73 L 82.86 11.87 L 83.00 13.97 L 85.29 14.25 L 85.29 16.20 L 87.43 16.34 L 87.57 18.44 L 89.71 18.58 L 89.86 20.67 L 92.14 20.95 L 92.14 25.14 L 94.43 25.42 L 94.43 29.61 L 96.71 29.89 L 96.71 36.31 L 99.00 36.59 L 99.00 58.66 L 32.86 58.80 L 32.57 76.68 L 30.43 76.54 L 30.43 72.35 L 26.00 72.21 L 25.86 70.11 L 23.71 69.97 L 23.43 67.74 L 21.29 67.60 L 21.29 63.41 L 19.14 63.27 L 19.00 83.24 L 16.86 83.38 L 16.57 85.61 Z M 66.86 99.02 L 35.14 99.02 L 35.00 96.93 L 32.71 96.65 L 32.71 76.82 L 34.86 76.68 L 35.14 78.91 L 39.43 78.91 L 39.71 81.15 L 62.29 81.15 L 62.57 78.91 L 66.86 78.91 L 67.14 76.68 L 71.43 76.68 L 71.57 74.58 L 73.71 74.44 L 73.86 72.35 L 76.00 72.21 L 76.29 69.97 L 78.43 69.83 L 78.57 67.74 L 82.86 67.74 L 83.00 69.83 L 85.14 69.97 L 85.43 72.21 L 89.71 72.21 L 90.00 74.44 L 94.43 74.58 L 94.43 81.01 L 92.29 81.15 L 92.00 83.38 L 90.00 83.38 L 89.86 85.47 L 87.71 85.61 L 87.43 87.85 L 85.43 87.85 L 85.29 89.94 L 83.14 90.08 L 82.86 92.32 L 78.57 92.32 L 78.29 94.55 L 74.00 94.55 L 73.71 96.79 L 67.14 96.79 L 66.86 99.02 Z" fill={color} fillRule="evenodd" />
-    </svg>
-  );
-}
-
 function EclipseWordmark() {
   return (
     <div className="brand" role="img" aria-label="Eclipse">
@@ -595,7 +585,6 @@ const equalSplit = (k) =>
 
 // Variant labels: control is Variant A, challengers B, C, D… (industry standard A/B/n).
 const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"];
-const variantLabel = (i) => `Variant ${LETTERS[i]}`;
 const variantLabelFull = (i) => i === 0 ? "Variant A (Control)" : `Variant ${LETTERS[i]}`;
 const makeLabels = (k) => Array.from({ length: k }, (_, i) => variantLabelFull(i));
 
@@ -671,6 +660,7 @@ function PreTest({ confidence, twoTailed }) {
     setAlloc(equalSplit(kk));
   };
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
     [baseline, mde, traffic, period, power, k, alloc, confidence, twoTailed]);
 
@@ -1079,7 +1069,7 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   );
 }
 
-function NonInfCard({ name, p1, p2, relDiff, marginRel, lowerBound, upperBound, margin, pRaw, confidence }) {
+function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw, confidence }) {
   const confPct = Math.round(confidence * 100);
   const confirmed = pRaw < 1 - confidence;
   // verdict: confirmed non-inferior / worse than margin / inconclusive
@@ -1129,6 +1119,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
   const marginRel = Number(marginPct) / 100;
   const isNonInf = question === "noninf";
   const [calculated, setCalculated] = useState(false);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
     [rows, alloc, question, marginPct, k, confidence, twoTailed, durationDays]);
 
@@ -1435,6 +1426,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   const [winsorize, setWinsorize]               = useState(false);
   const [calculated, setCalculated]             = useState(false);
   const fileRefs = useRef(Array.from({ length: 8 }, () => null));
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
     [visitorOverrides, fileParsed, winsorize, alloc, k, confidence, twoTailed, durationDays, rows]);
 
