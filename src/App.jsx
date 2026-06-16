@@ -1,4 +1,5 @@
 import React, { useMemo, useRef, useState } from "react";
+import Papa from "papaparse";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as ChartTip, ResponsiveContainer,
@@ -1451,35 +1452,113 @@ function rpvStats(orders, visitors) {
   return { m, s: Math.sqrt(variance), n: visitors };
 }
 
-// Parse a revenue file: accepts a single revenue column, or two columns (ID + revenue).
-// Tolerates a header row, currency symbols, thousand-separators, tab/semicolon/comma delimiters.
+// Parse a revenue file: handles CSV, TSV, space-delimited.
+// Heuristically finds the revenue column if multiple exist.
 function parseRevenueFile(text) {
   const values = [], errors = [];
+  
+  // Use PapaParse for robust parsing
+  const results = Papa.parse(text.trim(), {
+    skipEmptyLines: true,
+    dynamicTyping: false,
+  });
+
+  const rows = results.data;
+  if (!rows || rows.length === 0) return { values, errors };
+
+  // Heuristic to find the revenue column
+  let revenueColIdx = -1;
+  const firstRow = rows[0];
+  const numCols = firstRow.length;
+
+  if (numCols === 1) {
+    revenueColIdx = 0;
+  } else {
+    // 1. Try header names
+    const possibleHeaders = ["revenue", "value", "amount", "price", "total", "spend", "order_value", "order value"];
+    revenueColIdx = firstRow.findIndex(cell => 
+      typeof cell === 'string' && possibleHeaders.some(h => cell.toLowerCase().includes(h))
+    );
+
+    // 2. Fallback: Find the column that looks most like revenue (numeric, not huge IDs)
+    if (revenueColIdx === -1) {
+      const colScores = Array(numCols).fill(0);
+      const rowsToTest = rows.slice(0, 10);
+      
+      for (let c = 0; c < numCols; c++) {
+        let numericCount = 0;
+        let hasDecimals = false;
+        let avgValue = 0;
+
+        rowsToTest.forEach(row => {
+          const cell = String(row[c] || "").trim().replace(/[£$€\s,]/g, '');
+          const v = Number(cell);
+          if (cell !== "" && !isNaN(v)) {
+            numericCount++;
+            if (cell.includes('.')) hasDecimals = true;
+            avgValue += Math.abs(v);
+          }
+        });
+
+        if (numericCount > 0) {
+          avgValue /= numericCount;
+          // Score higher for columns that are numeric
+          colScores[c] += numericCount * 10;
+          // Score higher for columns with decimals (likely prices)
+          if (hasDecimals) colScores[c] += 5;
+          // Score LOWER for columns that look like large IDs (integers > 1,000,000)
+          if (avgValue > 1000000 && Number.isInteger(avgValue)) colScores[c] -= 20;
+        }
+      }
+      
+      // Pick highest scoring column, prefer rightmost if tied
+      let maxScore = -Infinity;
+      for (let c = numCols - 1; c >= 0; c--) {
+        if (colScores[c] > maxScore) {
+          maxScore = colScores[c];
+          revenueColIdx = c;
+        }
+      }
+    }
+  }
+
+  if (revenueColIdx === -1) revenueColIdx = numCols - 1;
+
   let firstDataSeen = false;
-  text.split(/\r?\n/).forEach((raw, i) => {
-    const line = raw.trim();
-    if (!line) return;
-    // Split by tab or semicolon first; if neither, try comma; if neither, try space
-    let cells = line.split(/[\t;]+/);
-    if (cells.length === 1) cells = line.split(',');
-    if (cells.length === 1) cells = line.split(/\s+/);
-    // Use last cell as revenue candidate
-    let cell = cells[cells.length - 1].trim().replace(/[£$€\s]/g, '');
-    // Strip thousand-separators only when format looks numeric-with-commas
-    if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(cell)) cell = cell.replace(/,/g, '');
+  rows.forEach((row, i) => {
+    let cell = String(row[revenueColIdx] || "").trim();
+    if (!cell) return;
+
+    // Clean up currency symbols and spaces
+    cell = cell.replace(/[£$€\s]/g, '');
+
+    // Handle European format: 100,00 -> 100.00
+    if (cell.includes(',') && !cell.includes('.')) {
+      if (!/^\d{1,3}(,\d{3})+$/.test(cell)) {
+        cell = cell.replace(',', '.');
+      }
+    }
+    
+    // Remove thousand separators
+    if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(cell)) {
+      cell = cell.replace(/,/g, '');
+    }
+
     const v = Number(cell);
-    if (cell === '' || !Number.isFinite(v)) {
-      if (!firstDataSeen) return; // header row — skip silently
-      if (errors.length < 8) errors.push(`Row ${i + 1}: "${cells[cells.length - 1].trim()}" is not a number.`);
+    if (!Number.isFinite(v)) {
+      if (!firstDataSeen) return; // Skip header
+      if (errors.length < 8) errors.push(`Row ${i + 1}: "${cell}" is not a number.`);
       return;
     }
     if (v < 0) {
       if (errors.length < 8) errors.push(`Row ${i + 1}: revenue can't be negative.`);
       firstDataSeen = true; return;
     }
+
     firstDataSeen = true;
     values.push(v);
   });
+
   return { values, errors };
 }
 
@@ -1959,7 +2038,7 @@ export default function EclipseCalculator() {
 /* ───────────────────────── Styles ─────────────────────────────── */
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
 
 :root {
   --paper:#F7F6FA; --card:#FFFFFF; --ink:#1C1328; --muted:#6B6478;
@@ -1974,8 +2053,9 @@ const CSS = `
   --shadow:0 1px 2px rgba(26,18,41,.05), 0 10px 30px -12px rgba(26,18,41,.13);
   --radius:15px;
 }
-.app{font-family:'Inter',system-ui,sans-serif;background:var(--paper);color:var(--ink);
-  min-height:100vh;padding:0 16px 56px;font-size:15.5px;line-height:1.55;
+.app{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;background:var(--paper);color:var(--ink);
+  min-height:100vh;padding:0 16px 56px;font-size:15.5px;line-height:1.55;letter-spacing:-0.025em;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
   font-feature-settings:'cv11' 1;}
 .app *{box-sizing:border-box;}
 .app :focus-visible{outline:3px solid var(--pink);outline-offset:2px;border-radius:6px;}
@@ -1989,15 +2069,15 @@ const CSS = `
 .mast-inner{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
 .brand{display:flex;align-items:center;gap:9px;}
 .brand-mark{display:block;flex:none;}
-.brand-word{font-family:'Sora',sans-serif;font-weight:800;font-size:30px;color:var(--pink);letter-spacing:-0.02em;
-  letter-spacing:-0.03em;line-height:1;}
+.brand-word{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:30px;color:var(--pink);
+  letter-spacing:-0.03em;line-height:1.2;}
 .tagline{color:var(--muted);font-size:15px;padding-top:6px;}
 
 /* tabs */
 .mode-tabs{max-width:1080px;margin:26px auto 0;display:flex;gap:12px;flex-wrap:wrap;}
 .tab{flex:1;min-width:210px;text-align:left;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);padding:16px 20px;cursor:pointer;box-shadow:var(--shadow);
-  font-family:'Sora',sans-serif;font-weight:700;font-size:17px;color:var(--ink);}
+  font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:17px;color:var(--ink);line-height:1.2;}
 .tab-sub{display:block;font-family:'Inter',sans-serif;font-weight:400;
   font-size:13px;color:var(--muted);margin-top:3px;}
 .tab-on{border-color:transparent;background:var(--grad);color:#fff;}
@@ -2037,7 +2117,7 @@ const CSS = `
 }
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   box-shadow:var(--shadow);padding:22px 24px;}
-.panel-title{font-family:'Sora',sans-serif;font-weight:700;font-size:20px;margin:0 0 14px;color:var(--navy);letter-spacing:-0.01em;}
+.panel-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:20px;margin:0 0 14px;color:var(--navy);letter-spacing:-0.025em;line-height:1.2;}
 .results-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
   flex-wrap:wrap;}
 .results-head .panel-title{margin-bottom:8px;}
@@ -2074,7 +2154,7 @@ const CSS = `
 .btn-calc:disabled{background:var(--line);color:var(--muted);cursor:not-allowed;}
 .test-chip{font-size:12.5px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
   border:1px solid #E3D5F0;border-radius:999px;padding:5px 14px;white-space:nowrap;}
-.sub-title{font-family:'Sora',sans-serif;font-weight:700;font-size:16px;
+.sub-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:16px;line-height:1.5;
   margin:24px 0 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .empty{color:var(--muted);}
 
@@ -2117,8 +2197,8 @@ const CSS = `
 
 /* variants & allocation */
 .arm-row{border-top:1px dashed var(--line);padding-top:14px;margin-top:14px;}
-.arm-name{font-size:15px;font-weight:700;margin:0 0 10px;color:var(--navy);display:flex;align-items:center;gap:9px;
-  font-family:'Sora',sans-serif;}
+.arm-name{font-size:15px;font-weight:600;margin:0 0 10px;color:var(--navy);display:flex;align-items:center;gap:9px;
+  font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;line-height:1.5;}
 .arm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 @media (max-width:560px){.arm-grid{grid-template-columns:1fr 1fr;}}
 .cvr-readout{display:block;padding:10px 0;font-size:15.5px;font-weight:600;}
@@ -2149,7 +2229,7 @@ const CSS = `
 .stat-hero .stat-label{color:rgba(255,255,255,.85);}
 .stat-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
   color:var(--muted);margin-bottom:5px;}
-.stat-num{font-family:'Sora',sans-serif;font-size:24px;font-weight:700;}
+.stat-num{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:24px;font-weight:600;}
 .note{background:var(--warn-bg);border-left:3px solid var(--warn-edge);padding:11px 13px;
   border-radius:0 10px 10px 0;font-size:14px;margin:12px 0;}
 .chart-wrap{margin:6px 0 4px;min-width:0;}
@@ -2164,9 +2244,9 @@ const CSS = `
 
 .v2-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;}
 .v2-verdict-wrap{display:flex;flex-direction:column;gap:8px;}
-.v2-title{font-family:'Sora',sans-serif;font-size:14px;font-weight:600;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.05em;}
+.v2-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:14px;font-weight:600;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.05em;}
 .v2-conf-pill{background:var(--paper);padding:8px 16px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:100px;border:1px solid var(--line);}
-.v2-conf-val{font-family:'Sora',sans-serif;font-size:20px;font-weight:800;color:var(--ink);line-height:1;}
+.v2-conf-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:20px;font-weight:700;color:var(--ink);line-height:1;}
 .v2-conf-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-top:4px;}
 
 .v2-meaning{font-size:15px;line-height:1.5;color:var(--ink);margin:0 0 24px;max-width:65ch;}
@@ -2174,12 +2254,12 @@ const CSS = `
 .v2-metrics{display:flex;gap:24px;align-items:center;background:var(--paper);padding:20px;border-radius:16px;margin-bottom:20px;flex-wrap:wrap;}
 .v2-metric-main{flex:1;min-width:180px;}
 .v2-m-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;}
-.v2-m-val{font-family:'Sora',sans-serif;font-size:32px;font-weight:800;line-height:1;}
+.v2-m-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:32px;font-weight:700;line-height:1;}
 .v2-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;min-width:240px;border-left:1px solid var(--line);padding-left:24px;}
 @media (max-width:600px){.v2-metric-grid{border-left:0;padding-left:0;padding-top:16px;border-top:1px solid var(--line);}}
 .v2-m-item{display:flex;flex-direction:column;gap:4px;}
 .v2-m-i-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;}
-.v2-m-i-val{font-family:'Sora',sans-serif;font-size:18px;font-weight:700;color:var(--ink);}
+.v2-m-i-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:18px;font-weight:600;color:var(--ink);}
 
 .v2-details{border-top:1px solid var(--line);padding-top:16px;}
 .v2-d-row{display:flex;gap:24px;flex-wrap:wrap;}
@@ -2197,7 +2277,7 @@ const CSS = `
   margin:12px 0;background:#fff;box-shadow:var(--shadow);}
 .result-head{display:flex;justify-content:space-between;align-items:center;gap:10px;
   flex-wrap:wrap;margin-bottom:12px;}
-.result-name{font-family:'Sora',sans-serif;font-size:15.5px;font-weight:700;margin:0;}
+.result-name{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:15.5px;font-weight:600;margin:0;}
 .result-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));gap:12px 16px;margin:0;}
 @media (max-width:680px){.result-grid{grid-template-columns:1fr 1fr;}}
 .result-grid dt{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;
@@ -2248,15 +2328,15 @@ const CSS = `
 .dimmed{opacity:.55;}
 
 .traffic-row{display:flex;gap:8px;align-items:center;}
-.block-title{font-family:'Sora',sans-serif;font-weight:700;font-size:15px;margin:20px 0 4px;color:var(--ink);}
+.block-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:15px;margin:20px 0 4px;color:var(--ink);line-height:1.5;}
 .traffic-block-v2{display:flex;flex-direction:column;gap:16px;margin-bottom:12px;}
 .traffic-arm{background:var(--paper);padding:12px 16px;border-radius:12px;border:1px solid var(--line);}
-.traffic-arm-name{font-weight:700;font-size:14px;color:var(--navy);margin-bottom:10px;font-family:'Sora',sans-serif;}
+.traffic-arm-name{font-weight:600;font-size:14px;color:var(--navy);margin-bottom:10px;font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;}
 .traffic-arm-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
 @media (max-width:480px){.traffic-arm-fields{grid-template-columns:1fr;}}
 .traffic-block{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:6px;}
 .arm-orders{font-family:'Inter',sans-serif;font-weight:400;font-size:12.5px;color:var(--muted);margin-left:auto;}
-.avatar-dot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--avatar);color:var(--purple-deep);font-family:'Sora',sans-serif;font-weight:700;font-size:13px;flex:none;}
+.avatar-dot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--avatar);color:var(--purple-deep);font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:13px;flex:none;}
 .select{max-width:130px;cursor:pointer;}
 .derived-line{font-size:13px;color:var(--muted);margin-top:6px;}
 .derived-line strong{color:var(--purple-deep);}
