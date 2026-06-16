@@ -347,18 +347,45 @@ async function exportPdf(title, sections) {
   const page = doc.internal.pageSize;
   const nl = (h) => { y += h; if (y > page.getHeight() - M) { doc.addPage(); y = M; } };
 
-  // Draw Logo
-  const brandColor = [220, 0, 74];
-  doc.setDrawColor(...brandColor);
-  doc.setFillColor(...brandColor);
-  // Simple eclipse icon: a circle
-  doc.circle(M + 10, y + 10, 10, "F");
-  // A white cutout to make it look like an eclipse
-  doc.setFillColor(255, 255, 255);
-  doc.circle(M + 14, y + 10, 8, "F");
+  // Draw Logo using the actual SVG from the page
+  try {
+    const svgEl = document.querySelector('.brand-logo');
+    if (svgEl) {
+      const pink = getComputedStyle(document.documentElement).getPropertyValue('--pink').trim() || '#DC004A';
+      const svgClone = svgEl.cloneNode(true);
+      const path = svgClone.querySelector('path');
+      if (path) path.setAttribute('fill', pink);
+      
+      const svgString = new XMLSerializer().serializeToString(svgClone);
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = url;
+      });
 
-  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(...brandColor);
-  doc.text("eclipse", M + 28, y + 16); nl(32);
+      const canvas = document.createElement('canvas');
+      const scale = 4; // High scale for crisp PDF
+      canvas.width = 120 * scale;
+      canvas.height = 35 * scale;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(url);
+      
+      doc.addImage(canvas.toDataURL('image/png'), 'PNG', M, y, 120, 35);
+      nl(45);
+    } else {
+      throw new Error("Logo not found");
+    }
+  } catch (e) {
+    // Fallback to stylized text if SVG fails
+    const brandColor = [220, 0, 74];
+    doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(...brandColor);
+    doc.text("eclipse", M, y + 16); nl(32);
+  }
 
   doc.setTextColor(28, 19, 40); doc.setFontSize(14);
   doc.text(title, M, y); nl(10);
@@ -1750,11 +1777,6 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
           ))}
         </div>
 
-        <div className="data-privacy">
-          <span aria-hidden="true" className="privacy-icon">🔒</span>
-          Files are processed entirely in your browser. No data is sent to any server or stored anywhere.
-        </div>
-
         <h3 className="block-title">Order revenue file per variant</h3>
         {armData.map((a, i) => (
           <div className="arm-row" key={i}>
@@ -2377,12 +2399,6 @@ const CSS = `
 .aov-warning strong{color:var(--warn-edge);}
 .mismatch-warn{background:#FFF6E8;border-left:3px solid #C97B12;border-radius:0 10px 10px 0;
   padding:10px 13px;font-size:13.5px;margin:8px 0;}
-
-/* privacy notice */
-.data-privacy{display:flex;align-items:flex-start;gap:8px;font-size:13px;color:var(--muted);
-  background:var(--purple-soft);border:1px solid #E3D5F0;border-radius:10px;padding:10px 13px;
-  margin-bottom:16px;}
-.privacy-icon{flex:none;font-size:15px;}
 
 /* upload zone */
 .upload-zone{margin:10px 0 6px;}
