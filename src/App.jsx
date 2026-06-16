@@ -405,13 +405,42 @@ async function exportPdf(title, sections) {
   doc.save(`eclipse-${title.toLowerCase().replace(/[^a-z]+/g, "-")}-${stamp()}.pdf`);
 }
 
+function DownloadIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 17v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
+      <polyline points="8 12 12 17 16 12" />
+      <line x1="12" y1="3" x2="12" y2="17" />
+    </svg>
+  );
+}
+
+function UploadIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </svg>
+  );
+}
+
+function FileIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
+    </svg>
+  );
+}
+
 function ExportButtons({ onCsv, onPdf }) {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [err, setErr] = useState("");
   return (
     <div className="export-row">
       <button type="button" className="btn-export" onClick={onCsv}>
-        <span aria-hidden="true">⤓</span> CSV
+        <DownloadIcon /> CSV
       </button>
       <button type="button" className="btn-export" disabled={pdfBusy}
         onClick={async () => {
@@ -419,7 +448,7 @@ function ExportButtons({ onCsv, onPdf }) {
           try { await onPdf(); } catch (e) { setErr(e.message); }
           setPdfBusy(false);
         }}>
-        <span aria-hidden="true">⤓</span> {pdfBusy ? "Preparing…" : "PDF"}
+        <DownloadIcon /> {pdfBusy ? "Preparing…" : "PDF"}
       </button>
       {err && <span className="export-err" role="alert">{err}</span>}
     </div>
@@ -542,11 +571,35 @@ function Field({ label, hint, error, children, htmlFor }) {
   );
 }
 
+function WinnerIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="18 15 12 9 6 15" />
+    </svg>
+  );
+}
+
+function LoserIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function NsIcon() {
+  return (
+    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+    </svg>
+  );
+}
+
 function Verdict({ kind, txtOverride }) {
   const map = {
-    winner: { txt: "Significant winner", icon: "▲", cls: "v-win" },
-    loser: { txt: "Significant loser", icon: "▼", cls: "v-lose" },
-    ns: { txt: "Not significant", icon: "○", cls: "v-ns" },
+    winner: { txt: "Significant winner", icon: <WinnerIcon />, cls: "v-win" },
+    loser: { txt: "Significant loser", icon: <LoserIcon />, cls: "v-lose" },
+    ns: { txt: "Not significant", icon: <NsIcon />, cls: "v-ns" },
   };
   const v = map[kind];
   return (
@@ -809,7 +862,16 @@ function PreTest({ confidence, twoTailed }) {
         />
 
         <button type="button" className="btn-calc"
-          onClick={() => setCalculated(true)} disabled={!inputsValid}>
+          onClick={() => {
+            setCalculated(true);
+            setTimeout(() => {
+              const resultsEl = document.querySelector('.results');
+              if (resultsEl) {
+                resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 100);
+          }} 
+          disabled={!inputsValid}>
           Calculate
         </button>
       </section>
@@ -910,20 +972,22 @@ function PreTest({ confidence, twoTailed }) {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-            <table className="mini-table">
-              <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
-              <thead>
-                <tr><th scope="col">Weeks</th>{result.chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <th scope="row">Uplift</th>
+            <div className="detail-table-wrap">
+              <table className="mini-table vertical-on-mobile">
+                <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
+                <thead>
+                  <tr><th scope="col">Weeks</th>{result.chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Uplift</th>
                   {result.chart.map((r) => (
-                    <td key={r.week}>{r.mde != null ? `${r.mde}%` : "—"}</td>
+                    <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
                   ))}
-                </tr>
-              </tbody>
-            </table>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </>
         )}
       </section>
@@ -1006,11 +1070,11 @@ function DetailedStats({ comparisons, confidence, twoTailed }) {
                 {comparisons.map((c) => (
                   <tr key={c.name}>
                     <th scope="row">{c.name} vs A</th>
-                    <td>{c.seA.toFixed(5)}</td>
-                    <td>{c.seB.toFixed(5)}</td>
-                    <td>{c.seDiff.toFixed(5)}</td>
-                    <td>{c.z.toFixed(4)}</td>
-                    <td>{fmtP(c.pAdj)}</td>
+                    <td data-label="Std error A">{c.seA.toFixed(5)}</td>
+                    <td data-label="Std error">{c.seB.toFixed(5)}</td>
+                    <td data-label="Std error of diff">{c.seDiff.toFixed(5)}</td>
+                    <td data-label="Z-score">{c.z.toFixed(4)}</td>
+                    <td data-label="p-value">{fmtP(c.pAdj)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1350,7 +1414,16 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
         </Field>
 
         <button type="button" className="btn-calc"
-          onClick={() => setCalculated(true)} disabled={!inputsValid}>
+          onClick={() => {
+            setCalculated(true);
+            setTimeout(() => {
+              const resultsEl = document.querySelector('.results');
+              if (resultsEl) {
+                resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 100);
+          }} 
+          disabled={!inputsValid}>
           Calculate
         </button>
       </section>
@@ -1860,7 +1933,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 onChange={e => e.target.files && e.target.files[0] && onFile(i, e.target.files[0])}
               />
               <label htmlFor={`rev-file-${i}`} className={`upload-label ${a.fp ? 'upload-label-filled' : ''}`}>
-                <span className="upload-icon" aria-hidden="true">{a.fp ? '📄' : '⬆'}</span>
+                <span className="upload-icon" aria-hidden="true">{a.fp ? <FileIcon /> : <UploadIcon />}</span>
                 <span className="upload-cta">{a.fp ? a.fp.name : 'Choose file'}</span>
                 <span className="upload-sub">{a.fp ? `${fmtInt(a.orderCount)} orders detected — click to replace` : 'CSV or text file'}</span>
               </label>
@@ -1881,31 +1954,22 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
           </div>
         ))}
 
-        {analysis && analysis.skewFlag && (
-          <div className="note outlier-note" role="status">
-            <div className="outlier-header">
-              Order revenue data is heavily skewed or has extreme outliers — a few large orders may dominate the averages.
-              <Explainer id="winsorize" inline />
-            </div>
-            <label className="check-row">
-              <input type="checkbox" checked={winsorize}
-                onChange={e => setWinsorize(e.target.checked)} />
-              Cap order value outliers at the 99th percentile ({fmtMoney(analysis.p99)})
-            </label>
+        <div className="outlier-wrap">
+          <div className="outlier-header">
+            <h3 className="block-title" style={{margin:0}}>Outlier handling</h3>
+            <Explainer id="winsorize" inline />
           </div>
-        )}
-        {analysis && !analysis.skewFlag && (
-          <div className="outlier-wrap">
-            <div className="outlier-header">
-              <label className="check-row">
-                <input type="checkbox" checked={winsorize}
-                  onChange={e => setWinsorize(e.target.checked)} />
-                Cap order value outliers at the 99th percentile (optional)
-              </label>
-              <Explainer id="winsorize" inline />
+          <label className="check-row">
+            <input type="checkbox" checked={winsorize}
+              onChange={e => setWinsorize(e.target.checked)} />
+            Cap order value outliers at the 99th percentile {analysis ? `(${fmtMoney(analysis.p99)})` : '(optional)'}
+          </label>
+          {analysis && analysis.skewFlag && !winsorize && (
+            <div className="note outlier-note" style={{marginTop: '12px'}} role="status">
+              <strong>Note:</strong> Your data is heavily skewed. Capping outliers is recommended for more reliable results.
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <Field label="Test duration in days (optional)" htmlFor="rev-days">
           <input id="rev-days" className="input" type="number" min="1" step="1"
@@ -1913,7 +1977,16 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
         </Field>
 
         <button type="button" className="btn-calc"
-          onClick={() => setCalculated(true)} disabled={!inputsValid}>
+          onClick={() => {
+            setCalculated(true);
+            setTimeout(() => {
+              const resultsEl = document.querySelector('.results');
+              if (resultsEl) {
+                resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 100);
+          }} 
+          disabled={!inputsValid}>
           Calculate
         </button>
       </section>
@@ -2173,7 +2246,7 @@ const CSS = `
 .app{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;background:var(--paper);color:var(--ink);
   min-height:100vh;padding:0 16px 56px;font-size:15.5px;line-height:1.55;letter-spacing:-0.025em;
   -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
-  font-feature-settings:'cv11' 1;}
+  font-feature-settings:'cv11' 1;overflow-x:hidden;}
 .app *{box-sizing:border-box;}
 .app :focus-visible{outline:3px solid var(--pink);outline-offset:2px;border-radius:6px;}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
@@ -2192,9 +2265,10 @@ const CSS = `
 
 /* tabs */
 .mode-tabs{max-width:1080px;margin:26px auto 0;display:flex;gap:12px;flex-wrap:wrap;}
-.tab{flex:1;min-width:210px;text-align:left;background:var(--card);border:1px solid var(--line);
+.tab{flex:1;text-align:left;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);padding:16px 20px;cursor:pointer;box-shadow:var(--shadow);
   font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:17px;color:var(--ink);line-height:1.2;}
+@media (max-width:600px){.tab{min-width:0;width:100%;padding:12px 16px;}}
 .tab-sub{display:block;font-family:'Inter',sans-serif;font-weight:400;
   font-size:13px;color:var(--muted);margin-top:3px;}
 .tab-on{border-color:transparent;background:var(--grad);color:#fff;}
@@ -2218,7 +2292,7 @@ const CSS = `
 .seg{border:0;padding:0;margin:0;}
 .seg-legend{font-weight:600;font-size:13.5px;margin-bottom:7px;padding:0;}
 .seg-row{display:inline-flex;background:var(--paper);border:1px solid var(--line);
-  border-radius:999px;padding:3px;}
+  border-radius:999px;padding:3px;flex-wrap:wrap;}
 .seg-opt{padding:6px 16px;font-size:14px;cursor:pointer;color:var(--muted);
   border-radius:999px;display:flex;align-items:center;font-weight:600;position:relative;}
 .seg-opt input{position:absolute;opacity:0;pointer-events:none;}
@@ -2226,17 +2300,18 @@ const CSS = `
 .seg-on{background:var(--purple);color:#fff;}
 
 /* layout */
-.two-col{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:1fr 1.15fr;gap:18px;align-items:start;}
-.two-col > *{min-width:0;}
-.two-col .results{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;min-width:0;overflow-x:hidden;}
+.two-col{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;align-items:start;}
+.two-col > *{min-width:0;max-width:100%;}
+.two-col .results{position:sticky;top:16px;min-width:0;overflow-x:hidden;}
 @media (max-width:880px){
-  .two-col{grid-template-columns:1fr;}
+  .two-col{display:block;width:100%;}
+  .two-col > *{margin-bottom:18px;}
   .two-col .results{position:static;max-height:none;overflow-y:visible;}
 }
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
-  box-shadow:var(--shadow);padding:22px 24px;min-width:0;}
+  box-shadow:var(--shadow);padding:22px 24px;min-width:0;max-width:100%;}
 @media (max-width:600px){
-  .panel{padding:16px 14px;}
+  .panel{padding:16px 12px;border-radius:0;border-inline:0;}
 }
 .panel-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:20px;margin:0 0 14px;color:var(--navy);letter-spacing:-0.025em;line-height:1.2;}
 .results-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
@@ -2257,11 +2332,18 @@ const CSS = `
   border-radius:12px;padding:14px 16px;overflow:hidden;min-width:0;}
 .detail-table-wrap{overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:thin;}
 .detail-table{width:100%;border-collapse:collapse;font-size:12px;
-  font-variant-numeric:tabular-nums;min-width:400px;}
+  font-variant-numeric:tabular-nums;}
 @media (max-width:600px){
-  .panel{padding:18px 16px;}
-  .detail-card{padding:12px 10px;}
-  .detail-table{font-size:11px;min-width:380px;}
+  .detail-table thead { display: none; }
+  .detail-table tbody tr { display: block; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px; padding: 8px; background: #fff; }
+  .detail-table tbody th, .detail-table tbody td { display: flex; justify-content: space-between; border: 0; padding: 6px 4px; text-align: right; }
+  .detail-table tbody th { text-align: left; border-bottom: 1px solid var(--line); margin-bottom: 4px; padding-bottom: 8px; }
+  .detail-table tbody td::before { content: attr(data-label); font-weight: 600; color: var(--muted); text-align: left; padding-right: 10px; }
+}
+@media (max-width:600px){
+  .panel{padding:16px 12px;}
+  .detail-card{padding:12px 8px;}
+  .detail-table{font-size:11px;min-width:280px;}
 }
 .detail-table th,.detail-table td{border:1px solid var(--line);padding:6px 8px;text-align:right;
   white-space:nowrap;}
@@ -2321,7 +2403,7 @@ const CSS = `
 .arm-name{font-size:15px;font-weight:600;margin:0 0 10px;color:var(--navy);display:flex;align-items:center;gap:9px;
   font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;line-height:1.5;}
 .arm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
-@media (max-width:560px){.arm-grid{grid-template-columns:1fr 1fr;}}
+@media (max-width:560px){.arm-grid{grid-template-columns:1fr;gap:8px;}}
 .cvr-readout{display:block;padding:10px 0;font-size:15.5px;font-weight:600;}
 .alloc-grid{display:flex;gap:10px;flex-wrap:wrap;}
 .alloc-cell .input{max-width:110px;}
@@ -2344,20 +2426,28 @@ const CSS = `
 
 /* results */
 .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 10px;}
-.stat{flex:1;min-width:140px;background:var(--paper);border:1px solid var(--line);
-  border-radius:12px;padding:14px 16px;}
-@media (max-width:600px){.stat{min-width:120px;padding:12px 10px;}}
+.stat{flex:1;background:var(--paper);border:1px solid var(--line);
+  border-radius:12px;padding:14px 16px;min-width:0;word-break:break-word;}
+@media (max-width:600px){.stat{min-width:0;width:100%;padding:12px 10px;}}
 .stat-hero{background:var(--grad);border-color:transparent;color:#fff;}
 .stat-hero .stat-label{color:rgba(255,255,255,.85);}
 .stat-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
   color:var(--muted);margin-bottom:5px;}
-.stat-num{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:24px;font-weight:600;}
+.stat-num{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:24px;font-weight:600;line-height:1.2;}
+@media (max-width:600px){.stat-num{font-size:20px;}}
 .note{background:var(--warn-bg);border-left:3px solid var(--warn-edge);padding:11px 13px;
   border-radius:0 10px 10px 0;font-size:14px;margin:12px 0;}
-.chart-wrap{margin:6px 0 4px;min-width:0;}
+.chart-wrap{margin:6px 0 4px;min-width:0;width:100%;overflow:hidden;}
 .mini-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;}
 .mini-table th,.mini-table td{border:1px solid var(--line);padding:5px 7px;text-align:center;}
 .mini-table th{background:var(--paper);font-weight:600;}
+
+@media (max-width:600px){
+  .vertical-on-mobile thead { display: none; }
+  .vertical-on-mobile tbody tr { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+  .vertical-on-mobile tbody th, .vertical-on-mobile tbody td { display: flex; justify-content: space-between; border: 0; padding: 8px 0; }
+  .vertical-on-mobile tbody td::before { content: attr(data-label); font-weight: 600; color: var(--muted); }
+}
 
 .result-card-v2{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin:16px 0;box-shadow:var(--shadow);position:relative;overflow:hidden;}
 @media (max-width:600px){
@@ -2370,22 +2460,25 @@ const CSS = `
 .v2-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;flex-wrap:wrap;}
 .v2-verdict-wrap{display:flex;flex-direction:column;gap:8px;}
 .v2-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:14px;font-weight:600;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.05em;}
-.v2-conf-pill{background:var(--paper);padding:8px 16px;border-radius:12px;display:flex;flex-direction:column;align-items:center;min-width:100px;border:1px solid var(--line);}
+.v2-conf-pill{background:var(--paper);padding:8px 16px;border-radius:12px;display:flex;flex-direction:column;align-items:center;border:1px solid var(--line);}
 .v2-conf-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:20px;font-weight:700;color:var(--ink);line-height:1;}
 .v2-conf-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-top:4px;}
 
 .v2-meaning{font-size:15px;line-height:1.5;color:var(--ink);margin:0 0 24px;max-width:65ch;}
 
 .v2-metrics{display:flex;gap:24px;align-items:center;background:var(--paper);padding:20px;border-radius:16px;margin-bottom:20px;flex-wrap:wrap;}
-.v2-metric-main{flex:1;min-width:180px;}
-@media (max-width:600px){.v2-metric-main{min-width:140px;}}
+@media (max-width:600px){.v2-metrics{padding:16px;gap:16px;flex-direction:column;align-items:stretch;}}
+.v2-metric-main{flex:1;}
+@media (max-width:600px){.v2-metric-main{min-width:0;width:100%;text-align:center;}}
 .v2-m-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;}
 .v2-m-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:32px;font-weight:700;line-height:1;}
-.v2-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;min-width:240px;border-left:1px solid var(--line);padding-left:24px;}
-@media (max-width:600px){.v2-metric-grid{border-left:0;padding-left:0;padding-top:16px;border-top:1px solid var(--line);min-width:100%;grid-template-columns:1fr;}}
+@media (max-width:600px){.v2-m-val{font-size:28px;}}
+.v2-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;border-left:1px solid var(--line);padding-left:24px;}
+@media (max-width:600px){.v2-metric-grid{border-left:0;padding-left:0;padding-top:16px;border-top:1px solid var(--line);min-width:0;width:100%;grid-template-columns:1fr;gap:12px;text-align:center;}}
 .v2-m-item{display:flex;flex-direction:column;gap:4px;}
 .v2-m-i-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;}
 .v2-m-i-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:18px;font-weight:600;color:var(--ink);}
+@media (max-width:600px){.v2-m-i-val{font-size:16px;}}
 
 .v2-details{border-top:1px solid var(--line);padding-top:16px;}
 .v2-d-row{display:flex;gap:24px;flex-wrap:wrap;}
@@ -2393,6 +2486,7 @@ const CSS = `
 .v2-d-col{display:flex;flex-direction:column;gap:2px;}
 .v2-d-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;}
 .v2-d-val{font-size:14px;font-weight:700;color:var(--ink);white-space:nowrap;}
+@media (max-width:600px){.v2-d-val{white-space:normal;word-break:break-word;}}
 .span-full{flex-basis:100%;}
 
 .text-win{color:var(--win);}
@@ -2406,10 +2500,11 @@ const CSS = `
   flex-wrap:wrap;margin-bottom:12px;}
 .result-name{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:15.5px;font-weight:600;margin:0;}
 .result-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px 16px;margin:0;}
-@media (max-width:680px){.result-grid{grid-template-columns:1fr 1fr;}}
+@media (max-width:600px){.result-grid{grid-template-columns:1fr;gap:12px;}}
 .result-grid dt{font-size:11.5px;font-weight:600;color:var(--muted);text-transform:uppercase;
   letter-spacing:.05em;line-height:1.2;margin-bottom:2px;}
 .result-grid dd{margin:0;font-size:16px;font-weight:600;white-space:nowrap;}
+@media (max-width:600px){.result-grid dd{white-space:normal;word-break:break-word;}}
 .span-2{grid-column:span 2;}
 @media (max-width:480px){.span-2{grid-column:span 1;}}
 .result-conf{font-size:14px;margin:14px 0 4px;}
@@ -2460,11 +2555,12 @@ const CSS = `
 .traffic-arm{background:var(--paper);padding:12px 16px;border-radius:12px;border:1px solid var(--line);}
 .traffic-arm-name{font-weight:600;font-size:14px;color:var(--navy);margin-bottom:10px;font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;}
 .traffic-arm-fields{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
-@media (max-width:480px){.traffic-arm-fields{grid-template-columns:1fr;}}
+@media (max-width:480px){.traffic-arm-fields{grid-template-columns:1fr;gap:8px;}}
 .traffic-block{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:6px;}
 .arm-orders{font-family:'Inter',sans-serif;font-weight:400;font-size:12.5px;color:var(--muted);margin-left:auto;}
 .avatar-dot{display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:var(--avatar);color:var(--purple-deep);font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:13px;flex:none;}
 .select{max-width:130px;cursor:pointer;}
+@media (max-width:600px){.select{max-width:100%;font-size:16px;}}
 .derived-line{font-size:13px;color:var(--muted);margin-top:6px;}
 .derived-line strong{color:var(--purple-deep);}
 .rev-top-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;}
@@ -2488,5 +2584,18 @@ const CSS = `
 
 @media (prefers-reduced-motion:no-preference){
   .tab,.subtab,.btn,.btn-step,.seg-opt{transition:background .15s,border-color .15s,color .15s,box-shadow .15s;}
+}
+
+@media (max-width:600px){
+  /* Force everything to respect viewport width */
+  body, #root, .app { width: 100vw !important; overflow-x: hidden !important; }
+  .panel, .result-card-v2, .detail-card { max-width: 100% !important; min-width: 0 !important; width: auto !important; }
+  
+  /* Fix tables that push width */
+  .detail-table-wrap, .mini-table-wrap { width: 100% !important; overflow-x: auto !important; margin: 0 !important; }
+  .detail-table, .mini-table { min-width: 0 !important; width: 100% !important; }
+  
+  /* Fix charts */
+  .chart-wrap { width: 100% !important; max-width: 100% !important; overflow: hidden !important; }
 }
 `;
