@@ -1002,25 +1002,34 @@ function DetailedStats({ comparisons, confidence, twoTailed }) {
 
 function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   relUplift, pRaw, pAdj, corrected, ciBase, ciVar, baseCiLabel, varCiLabel,
-  confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore }) {
+  confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore, goal = "increase" }) {
   const alpha = 1 - confidence;
   const decisionP = corrected ? pAdj : pRaw;
   const sig = Number.isFinite(decisionP) && decisionP < alpha;
   let kind = "ns";
   if (sig && relUplift != null) {
-    if (relUplift > 0) kind = "winner";
-    else kind = twoTailed ? "loser" : "ns";
+    const isPositive = relUplift > 0;
+    if (goal === "decrease") {
+      if (!isPositive) kind = "winner";
+      else kind = twoTailed ? "loser" : "ns";
+    } else {
+      if (isPositive) kind = "winner";
+      else kind = twoTailed ? "loser" : "ns";
+    }
   }
   const confPct = Math.round(confidence * 100);
   const confValue = Number.isFinite(decisionP) ? Math.min(99.9, (1 - decisionP) * 100) : null;
   const fmtCi = ciFmt || ((lo, hi) => `${fmtPct(lo)} – ${fmtPct(hi)}`);
 
   const who = name.split(" vs ")[0];
+  const betterTxt = goal === "decrease" ? "lower" : "better";
+  const worseTxt = goal === "decrease" ? "higher" : "worse";
+  
   const meaning = meaningOverride || (
     kind === "winner"
-      ? `The difference is large enough to be a real effect, not random fluctuation — ${who} ${metricNoun} better than Variant A.`
+      ? `The difference is large enough to be a real effect, not random fluctuation — ${who} ${metricNoun} ${betterTxt} than Variant A.`
       : kind === "loser"
-      ? `The difference is large enough to be a real effect, not random fluctuation — ${who} ${metricNoun} worse than Variant A.`
+      ? `The difference is large enough to be a real effect, not random fluctuation — ${who} ${metricNoun} ${worseTxt} than Variant A.`
       : `There's not enough evidence yet to be sure this is a real difference — it could still be random fluctuation.`);
 
   return (
@@ -1041,7 +1050,7 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
       <div className="v2-metrics">
         <div className="v2-metric-main">
           <div className="v2-m-label">Relative Uplift</div>
-          <div className={`v2-m-val ${relUplift >= 0 ? 'text-win' : 'text-lose'}`}>
+          <div className={`v2-m-val ${((goal === "decrease" && relUplift <= 0) || (goal === "increase" && relUplift >= 0)) ? 'text-win' : 'text-lose'}`}>
             {fmtSignedPct(relUplift)}
           </div>
         </div>
@@ -1174,13 +1183,14 @@ function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw
 function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
   const labels = makeLabels(k);
   const [question, setQuestion] = useState("better"); // "better" | "noninf"
+  const [goal, setGoal] = useState("increase");       // "increase" | "decrease"
   const [marginPct, setMarginPct] = useState("1");     // non-inferiority margin, relative %
   const marginRel = Number(marginPct) / 100;
   const isNonInf = question === "noninf";
   const [calculated, setCalculated] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [rows, alloc, question, marginPct, k, confidence, twoTailed, durationDays]);
+    [rows, alloc, question, goal, marginPct, k, confidence, twoTailed, durationDays]);
 
   const parsed = rows.map((r) => ({ v: Number(r.visitors), c: Number(r.conversions) }));
   const rowErrors = parsed.map(({ v, c }, i) => {
@@ -1249,6 +1259,18 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
             { value: "noninf", label: "Is it not worse?" },
           ]}
         />
+        {!isNonInf && (
+          <SegControl
+            legend="Goal direction"
+            name="goal"
+            value={goal}
+            onChange={setGoal}
+            options={[
+              { value: "increase", label: "Increase is a winner" },
+              { value: "decrease", label: "Decrease is a winner" },
+            ]}
+          />
+        )}
         {isNonInf && (
           <>
             <Field label="Acceptable margin (relative drop you can live with, %)" htmlFor="cvr-margin"
@@ -1324,6 +1346,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
                 ["Generated", new Date().toLocaleString("en-GB")],
                 ["Test type", isNonInf ? `Non-inferiority (margin ${fmtPct(marginRel)})` : `Z-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}`],
                 ["Confidence", `${Math.round(confidence*100)}%`],
+                ["Goal direction", goal === "decrease" ? "Decrease is a winner" : "Increase is a winner"],
                 ["SRM check", srm ? (srm.flagged ? `Flagged (p=${fmtP(srm.p)})` : `Healthy (p=${fmtP(srm.p)})`) : ""],
                 [],
                 ["Variant", "Visitors", "Conversions", "CVR"],
@@ -1341,7 +1364,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
                        corrected ? fmtP(r.pAdj) : "",
                        `${Math.min(99.9, (1 - dp) * 100).toFixed(1)}%`,
                        (r.ciB ? `${fmtPct(r.ciB[0])} to ${fmtPct(r.ciB[1])}` : ""),
-                       (dp < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"];
+                       (dp < 1 - confidence) ? ((goal === "decrease" ? r.relUplift < 0 : r.relUplift > 0) ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"];
                    })];
               downloadBlob(toCsv([...head, ...body]), `eclipse-cvr-${stamp()}.csv`, "text/csv");
             }}
@@ -1350,16 +1373,23 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
               const currentNoninfResults = noninfResults;
               const currentParsed = parsed;
               const currentLabels = labels;
+              const currentGoal = goal;
               exportPdf("Conversion rate analysis", [
                 { heading: "Setup", lines: [
                   isNonInf ? `Non-inferiority test, margin ${fmtPct(marginRel)}` : `Z-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}`,
                   `Confidence: ${Math.round(confidence*100)}%`,
+                  !isNonInf ? `Goal: ${currentGoal === "decrease" ? "Decrease is a winner" : "Increase is a winner"}` : "",
                   srm ? (srm.flagged ? `SRM check: FLAGGED (p=${fmtP(srm.p)}) — results may be unreliable` : `SRM check: healthy (p=${fmtP(srm.p)})`) : "",
                 ].filter(Boolean)},
                 { heading: "Data", lines: currentParsed.map((r, i) => `${currentLabels[i]}: ${fmtInt(r.v)} visitors, ${fmtInt(r.c)} conversions (CVR ${fmtPct(r.c/r.v)})`) },
                 { heading: "Results", lines: isNonInf
                   ? currentNoninfResults?.map(r => `${r.name} vs Variant A: relative diff ${fmtSignedPct(r.relDiff)} — ${(r.pRaw < 1 - confidence) ? "Non-inferiority confirmed" : (r.upperBound < -r.margin ? "Worse than margin" : "Not confirmed")}`)
-                  : currentResults?.map(r => { const dp = corrected ? r.pAdj : r.pRaw; return `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)} uplift, p=${fmtP(r.pRaw)}${corrected ? ` (corrected ${fmtP(r.pAdj)})` : ""}, ${Math.min(99.9,(1-dp)*100).toFixed(1)}% confidence — ${(dp < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`; }) },
+                  : currentResults?.map(r => { 
+                      const dp = corrected ? r.pAdj : r.pRaw; 
+                      const isWin = currentGoal === "decrease" ? r.relUplift < 0 : r.relUplift > 0;
+                      const verdict = (dp < 1 - confidence) ? (isWin ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant";
+                      return `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)} uplift, p=${fmtP(r.pRaw)}${corrected ? ` (corrected ${fmtP(r.pAdj)})` : ""}, ${Math.min(99.9,(1-dp)*100).toFixed(1)}% confidence — ${verdict}`; 
+                    }) },
               ]);
             }}
           />
@@ -1399,6 +1429,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
                       confidence={confidence} twoTailed={twoTailed}
                       metricNoun="converted"
                       zScore={{ label: "Z-score", value: r.z }}
+                      goal={goal}
                     />
                   ))}
             </div>
