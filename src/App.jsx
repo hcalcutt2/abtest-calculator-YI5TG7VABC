@@ -1516,10 +1516,22 @@ function parseRevenueFile(text) {
   const values = [], errors = [];
   
   // Use PapaParse for robust parsing
-  const results = Papa.parse(text.trim(), {
+  let results = Papa.parse(text.trim(), {
     skipEmptyLines: true,
     dynamicTyping: false,
   });
+
+  // Fallback for space-delimited files if auto-detection failed
+  if (results.data.length > 0 && results.data[0].length === 1) {
+    const spaceSplit = text.trim().split('\n')[0].split(/\s+/);
+    if (spaceSplit.length > 1) {
+      results = Papa.parse(text.trim(), {
+        delimiter: " ",
+        skipEmptyLines: true,
+        dynamicTyping: false,
+      });
+    }
+  }
 
   const rows = results.data;
   if (!rows || rows.length === 0) return { values, errors };
@@ -1533,38 +1545,58 @@ function parseRevenueFile(text) {
     revenueColIdx = 0;
   } else {
     // 1. Try header names
-    const possibleHeaders = ["revenue", "value", "amount", "price", "total", "spend", "order_value", "order value"];
-    revenueColIdx = firstRow.findIndex(cell => 
-      typeof cell === 'string' && possibleHeaders.some(h => cell.toLowerCase().includes(h))
-    );
+    const possibleHeaders = ["revenue", "rev", "value", "amount", "amt", "price", "total", "spend", "order_value", "order value", "sales", "sale"];
+    const idHeaders = ["id", "order", "trans", "uuid", "guid", "idx", "row", "key"];
 
-    // 2. Fallback: Find the column that looks most like revenue (numeric, not huge IDs)
-    if (revenueColIdx === -1) {
+    let bestHeaderScore = -1;
+    for (let c = 0; c < numCols; c++) {
+      const cell = String(firstRow[c] || "").toLowerCase();
+      let score = 0;
+      if (possibleHeaders.some(h => cell.includes(h))) score += 10;
+      if (idHeaders.some(h => cell.includes(h))) score -= 10;
+      
+      if (score > bestHeaderScore) {
+        bestHeaderScore = score;
+        revenueColIdx = c;
+      }
+    }
+
+    // 2. Fallback or refinement: Analyze data
+    if (bestHeaderScore <= 0) {
       const colScores = Array(numCols).fill(0);
-      const rowsToTest = rows.slice(0, 10);
+      const rowsToTest = rows.slice(0, 20); // Test more rows
       
       for (let c = 0; c < numCols; c++) {
         let numericCount = 0;
         let hasDecimals = false;
         let avgValue = 0;
+        let uniqueValues = new Set();
+        let isSequential = true;
+        let lastValue = null;
 
         rowsToTest.forEach(row => {
-          const cell = String(row[c] || "").trim().replace(/[£$€\s,]/g, '');
+          const rawCell = String(row[c] || "").trim();
+          const cell = rawCell.replace(/[£$€\s,]/g, '');
           const v = Number(cell);
-          if (cell !== "" && !isNaN(v)) {
+          if (rawCell !== "" && !isNaN(v)) {
             numericCount++;
-            if (cell.includes('.')) hasDecimals = true;
+            if (rawCell.includes('.') || (rawCell.includes(',') && !rawCell.includes('.'))) hasDecimals = true;
             avgValue += Math.abs(v);
+            uniqueValues.add(v);
+            if (lastValue !== null && v !== lastValue + 1) isSequential = false;
+            lastValue = v;
           }
         });
 
         if (numericCount > 0) {
           avgValue /= numericCount;
           // Score higher for columns that are numeric
-          colScores[c] += numericCount * 10;
+          colScores[c] += (numericCount / rowsToTest.length) * 20;
           // Score higher for columns with decimals (likely prices)
-          if (hasDecimals) colScores[c] += 5;
-          // Score LOWER for columns that look like large IDs (integers > 1,000,000)
+          if (hasDecimals) colScores[c] += 15;
+          // Score LOWER for columns that look like IDs
+          if (isSequential && numericCount > 1) colScores[c] -= 30;
+          if (uniqueValues.size === numericCount && numericCount > 5) colScores[c] -= 10; // Likely unique ID
           if (avgValue > 1000000 && Number.isInteger(avgValue)) colScores[c] -= 20;
         }
       }
@@ -1583,6 +1615,8 @@ function parseRevenueFile(text) {
   if (revenueColIdx === -1) revenueColIdx = numCols - 1;
 
   let firstDataSeen = false;
+  const rawValues = new Map(); // Map ID -> sum of revenue
+
   rows.forEach((row, i) => {
     let cell = String(row[revenueColIdx] || "").trim();
     if (!cell) return;
@@ -1590,16 +1624,27 @@ function parseRevenueFile(text) {
     // Clean up currency symbols and spaces
     cell = cell.replace(/[£$€\s]/g, '');
 
-    // Handle European format: 100,00 -> 100.00
-    if (cell.includes(',') && !cell.includes('.')) {
-      if (!/^\d{1,3}(,\d{3})+$/.test(cell)) {
+    // Robust number parsing
+    // 1. If it has both , and . (e.g. 1.234,56 or 1,234.56)
+    if (cell.includes(',') && cell.includes('.')) {
+      const lastComma = cell.lastIndexOf(',');
+      const lastDot = cell.lastIndexOf('.');
+      if (lastComma > lastDot) {
+        // European: 1.234,56 -> 1234.56
+        cell = cell.replace(/\./g, '').replace(',', '.');
+      } else {
+        // US/UK: 1,234.56 -> 1234.56
+        cell = cell.replace(/,/g, '');
+      }
+    } else if (cell.includes(',')) {
+      // 2. Only has , (e.g. 1,234 or 10,50)
+      // If it looks like a thousands separator (3 digits after), treat as such
+      if (/^\d{1,3}(,\d{3})+$/.test(cell)) {
+        cell = cell.replace(/,/g, '');
+      } else {
+        // Otherwise treat as decimal
         cell = cell.replace(',', '.');
       }
-    }
-    
-    // Remove thousand separators
-    if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(cell)) {
-      cell = cell.replace(/,/g, '');
     }
 
     const v = Number(cell);
@@ -1614,10 +1659,27 @@ function parseRevenueFile(text) {
     }
 
     firstDataSeen = true;
-    values.push(v);
+    
+    // Grouping logic: if there are multiple columns, use the "other" column as an ID
+    let id = i; // Default to row index
+    if (numCols > 1) {
+      // Find a column that isn't the revenue column to use as ID
+      // If there's a column that was penalized as an ID, use it.
+      // Otherwise just use the first column that isn't revenue.
+      let idColIdx = -1;
+      for (let c = 0; c < numCols; c++) {
+        if (c !== revenueColIdx) {
+          idColIdx = c;
+          break;
+        }
+      }
+      if (idColIdx !== -1) id = String(row[idColIdx]);
+    }
+
+    rawValues.set(id, (rawValues.get(id) || 0) + v);
   });
 
-  return { values, errors };
+  return { values: Array.from(rawValues.values()), errors, numCols, revenueColIdx };
 }
 
 function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
@@ -1673,7 +1735,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     else if (orderCount > visitors) visitorsError = `More orders (${fmtInt(orderCount)}) than visitors (${fmtInt(visitors)}) — check the visitor count.`;
 
     return { name: nm, visitors, visitorsOk: !visitorsError, visitorsError,
-             orders, orderCount, fp, mismatch };
+             orders, orderCount, fp, mismatch, numCols: fp ? fp.numCols : 1 };
   });
 
   const allFilesLoaded = armData.every(a => a.orderCount >= 2);
@@ -1724,8 +1786,8 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   const onFile = (i, file) => {
     const reader = new FileReader();
     reader.onload = e => {
-      const { values, errors } = parseRevenueFile(e.target.result);
-      setFileParsed(prev => { const n=[...prev]; n[i]={ values, errors, name: file.name }; return n; });
+      const { values, errors, numCols, revenueColIdx } = parseRevenueFile(e.target.result);
+      setFileParsed(prev => { const n=[...prev]; n[i]={ values, errors, name: file.name, numCols, revenueColIdx }; return n; });
     };
     reader.readAsText(file);
   };
@@ -1780,11 +1842,13 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
         <h3 className="block-title">Order revenue file per variant</h3>
         {armData.map((a, i) => (
           <div className="arm-row" key={i}>
-            <h3 className="arm-name">
-              <span className="avatar-dot" aria-hidden="true">{LETTERS[i]}</span>
-              {a.name}
-              <span className="arm-orders">{a.orderCount > 0 ? `${fmtInt(a.orderCount)} orders` : ''}</span>
-            </h3>
+              <h3 className="arm-name">
+                <span className="avatar-dot" aria-hidden="true">{LETTERS[i]}</span>
+                {a.name}
+                <span className="arm-orders">
+                  {a.orderCount > 0 ? `${fmtInt(a.orderCount)} unique ${a.numCols > 1 ? 'IDs' : 'orders'}` : ''}
+                </span>
+              </h3>
 
             <div className="upload-zone" role="group" aria-label={`Order revenue file for ${a.name}`}>
               <input
