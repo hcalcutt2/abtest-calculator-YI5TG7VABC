@@ -2684,28 +2684,28 @@ const CSS = `
   --radius:15px;
 }
 [data-theme='dark'] {
-  --paper:#09090B; --card:#18181B; --ink:#FAFAFA; --muted:#A1A1AA;
+  --paper:#09090B; --card:#121214; --ink:#FFFFFF; --muted:#A1A1AA;
   --line:#27272A;
-  --pink:#F43F5E; --pink-deep:#E11D48; --pink-soft:#4C0519;
-  --grey-disabled:#27272A; --text-disabled:#52525B;
+  --pink:#FF1A6A; --pink-deep:#FF4D8D; --pink-soft:#3D1224;
+  --grey-disabled:#27272A; --text-disabled:#71717A;
   --purple:#818CF8; --purple-deep:#E0E7FF; --purple-soft:#1E1B4B;
   --purple-bright:#6366F1; --avatar:#312E81;
-  --navy:#FAFAFA; --amber:#FBBF24;
+  --navy:#FFFFFF; --amber:#FBBF24;
   --win:#10B981; --win-bg:#064E3B; --lose:#EF4444; --lose-bg:#450A0A;
-  --ns:#71717A; --ns-bg:#18181B; --warn-bg:#422006; --warn-edge:#FBBF24;
+  --ns:#A1A1AA; --ns-bg:#18181B; --warn-bg:#422006; --warn-edge:#FBBF24;
   --shadow:0 1px 3px rgba(0,0,0,.5), 0 20px 40px -12px rgba(0,0,0,.7);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --paper:#110D1A; --card:#1C1328; --ink:#F0EEFA; --muted:#A9A2B5;
+    --paper:#0F0D15; --card:#16121E; --ink:#FFFFFF; --muted:#A9A2B5;
     --line:#2D243D;
-    --pink:#FF1A6A; --pink-deep:#DC004A; --pink-soft:#3D1224;
-    --grey-disabled:#3D344D; --text-disabled:#6B6478;
-    --purple:#CBCAFF; --purple-deep:#F0EEFA; --purple-soft:#2D243D;
-    --purple-bright:#8E7DFF; --avatar:#4A3787;
-    --navy:#F0EEFA; --amber:#F1C40F;
-    --win:#28A745; --win-bg:#122B1E; --lose:#FF4D4D; --lose-bg:#3D1414;
-    --ns:#A9A2B5; --ns-bg:#241E2D; --warn-bg:#2D2605; --warn-edge:#F1C40F;
+    --pink:#FF1A6A; --pink-deep:#FF4D8D; --pink-soft:#3D1224;
+    --grey-disabled:#2D2638; --text-disabled:#6B6478;
+    --purple:#818CF8; --purple-deep:#E0E7FF; --purple-soft:#261F33;
+    --purple-bright:#6366F1; --avatar:#4A3787;
+    --navy:#FFFFFF; --amber:#F1C40F;
+    --win:#10B981; --win-bg:#122B1E; --lose:#EF4444; --lose-bg:#3D1414;
+    --ns:#A9A2B5; --ns-bg:#1C1826; --warn-bg:#2D2605; --warn-edge:#F1C40F;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.5);
   }
 }
@@ -2837,9 +2837,9 @@ const CSS = `
 .btn-calc:disabled{background:var(--grey-disabled);color:var(--text-disabled);cursor:not-allowed;}
 .test-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;}
 .test-pill{font-size:12px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
-  border:1px solid #DCC9EE;border-radius:999px;padding:4px 12px;white-space:nowrap;}
+  border:1px solid var(--line);border-radius:999px;padding:4px 12px;white-space:nowrap;}
 .test-chip{font-size:12.5px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
-  border:1px solid #E3D5F0;border-radius:999px;padding:5px 14px;white-space:nowrap;}
+  border:1px solid var(--line);border-radius:999px;padding:5px 14px;white-space:nowrap;}
 .sub-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:16px;line-height:1.5;
   margin:24px 0 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .empty{color:var(--muted);}
@@ -2853,7 +2853,7 @@ const CSS = `
   font-size:13.5px;padding:7px 11px;border-radius:0 8px 8px 0;margin-top:7px;}
 .input{width:100%;max-width:220px;border:1.5px solid var(--line);border-radius:10px;
   padding:10px 13px;font-size:15.5px;font-family:'Inter',sans-serif;color:var(--ink);
-  background:#fff;font-feature-settings:'tnum' 1;}
+  background:var(--paper);font-feature-settings:'tnum' 1;}
 .input:focus-visible{border-color:var(--purple);}
 .input::placeholder{color:#A9A2B5;font-style:normal;}
 .input::-webkit-outer-spin-button,.input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
@@ -2899,7 +2899,7 @@ const CSS = `
 .explainer-toggle{display:inline-flex;align-items:center;justify-content:center;background:none;border:0;padding:0;
   color:var(--purple);cursor:pointer;text-align:left;font-family:'Inter',sans-serif;line-height:1;}
 .exp-ring{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
-  background:var(--purple-soft);border:1px solid #DCC9EE;border-radius:50%;font-size:10px;
+  background:var(--purple-soft);border:1px solid var(--line);border-radius:50%;font-size:10px;
   flex:none;color:var(--purple);font-weight:700;line-height:1;margin-top:-1px;}
 .explainer-body{position:absolute;top:100%;right:0;z-index:100;margin-top:8px;background:var(--card);
   border:1px solid var(--line);padding:14px 16px;font-size:13.5px;border-radius:12px;
