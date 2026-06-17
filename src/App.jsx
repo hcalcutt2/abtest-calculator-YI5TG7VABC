@@ -464,14 +464,14 @@ const EXPLAINERS = {
   },
   confidence: {
     label: "What does the confidence level mean?",
-    body: "Confidence protects you from shipping a fluke. It sets how sure you need to be before calling a variant a winner. At 95%, you accept a 1-in-20 risk of declaring a winner when the variant actually does nothing — meaning you'd roll out a change that won't deliver, and any revenue forecast built on it falls flat. At 99% that risk drops to 1-in-100 but you need more traffic to get there; at 90% it rises to 1-in-10. 95% is the standard business trade-off; use 99% when a wrong call is expensive to reverse.",
+    body: "Confidence protects you from shipping a fluke. It sets how sure you need to be before calling a variant a winner. At 95% (the industry standard), you accept a 1-in-20 risk of declaring a winner when the variant actually does nothing. At 99% that risk drops to 1-in-100 but you need more traffic; at 90% it rises to 1-in-10. 95% is the default as it's the standard business trade-off.",
   },
   power: {
     label: "What is statistical power?",
-    lead: "Power is your protection against missing a winner — the chance your test spots a real improvement instead of coming back flat.",
+    lead: "Power is your protection against missing a winner — the chance your test spots a real improvement instead of coming back flat. 80% is the default as it is the standard business trade-off between speed and sensitivity.",
     bullets: [
       "70% power: a 3-in-10 chance a genuine winner looks like nothing. Fastest, but riskiest.",
-      "80% power: a 1-in-5 chance of missing a real winner. The usual business trade-off.",
+      "80% power: a 1-in-5 chance of missing a real winner. The standard choice.",
       "90% power: only a 1-in-10 chance of missing it, but needs more visitors and a longer test.",
     ],
     foot: "Higher power means you're less likely to scrap a change that was actually working — at the cost of more traffic.",
@@ -533,7 +533,10 @@ function Explainer({ id, inline }) {
   const e = EXPLAINERS[id];
   if (!e) return null;
   return (
-    <div className={`explainer ${inline ? "explainer-inline" : ""}`}>
+    <div className={`explainer ${inline ? "explainer-inline" : ""}`}
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+    >
       <button
         type="button"
         className="explainer-toggle"
@@ -542,10 +545,10 @@ function Explainer({ id, inline }) {
         onClick={() => setOpen(!open)}
       >
         <span aria-hidden="true" className="exp-ring">?</span>
-        <span className="exp-label">{e.label}</span>
       </button>
       {open && (
         <div id={`exp-${id}-${inline ? "i" : "b"}`} className="explainer-body">
+          <div className="exp-title">{e.label}</div>
           {e.body && <span>{e.body}</span>}
           {e.lead && <p className="exp-lead">{e.lead}</p>}
           {e.bullets && (
@@ -560,10 +563,13 @@ function Explainer({ id, inline }) {
   );
 }
 
-function Field({ label, hint, error, children, htmlFor }) {
+function Field({ label, hint, error, children, htmlFor, explainerId }) {
   return (
     <div className="field">
-      <label className="field-label" htmlFor={htmlFor}>{label}</label>
+      <div className="field-label-row">
+        <label className="field-label" htmlFor={htmlFor}>{label}</label>
+        {explainerId && <Explainer id={explainerId} inline />}
+      </div>
       {hint && <div className="field-hint">{hint}</div>}
       {children}
       {error && <div className="field-error" role="alert">{error}</div>}
@@ -612,8 +618,7 @@ function Verdict({ kind, txtOverride }) {
 
 function SegControl({ legend, options, value, onChange, name, explainerId }) {
   return (
-    <fieldset className="seg">
-      <legend className="seg-legend">{legend}</legend>
+    <Field label={legend} explainerId={explainerId}>
       <div className="seg-row" role="radiogroup" aria-label={legend}>
         {options.map((o) => (
           <label key={o.value} className={`seg-opt ${value === o.value ? "seg-on" : ""}`}>
@@ -628,8 +633,7 @@ function SegControl({ legend, options, value, onChange, name, explainerId }) {
           </label>
         ))}
       </div>
-      {explainerId && <Explainer id={explainerId} inline />}
-    </fieldset>
+    </Field>
   );
 }
 
@@ -698,14 +702,16 @@ function SrmBanner({ srm }) {
   }
   return (
     <div className="srm-bad" role="alert">
-      <strong>Your traffic didn't split the way it was planned.</strong>
+      <div style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'8px'}}>
+        <strong>Your traffic didn't split the way it was planned.</strong>
+        <Explainer id="srm" inline />
+      </div>
       <p>
         This is known as a sample ratio mismatch. It usually points to a setup issue rather than
         user behaviour — common causes are redirect bugs, bot filtering that treats variants
         differently, or lost tracking on one variant. The groups may not be comparable, so the
         results below may be unreliable. Worth checking the implementation before acting on them.
       </p>
-      <Explainer id="srm" />
     </div>
   );
 }
@@ -797,9 +803,8 @@ function PreTest({ confidence, twoTailed }) {
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="pre-h">
-        <h2 id="pre-h" className="panel-title">Plan your test</h2>
 
-        <Field label="Baseline conversion rate (%)" htmlFor="pre-baseline" error={errors.baseline}
+        <Field label="Baseline conversion rate (%)" htmlFor="pre-baseline" error={errors.baseline} explainerId="ztest"
           hint="Your current conversion rate, before the test.">
           <input id="pre-baseline" className="input" type="number" min="0" max="100" step="0.01" placeholder="e.g. 2.0"
             value={baseline} onChange={(e) => setBaseline(e.target.value)} />
@@ -810,17 +815,17 @@ function PreTest({ confidence, twoTailed }) {
           htmlFor="pre-mde"
           hint="The smallest uplift worth detecting, relative to your baseline."
           error={errors.mde}
+          explainerId="mde"
         >
           <input id="pre-mde" className="input" type="number" min="0" step="0.1" placeholder="e.g. 10"
             value={mde} onChange={(e) => setMde(e.target.value)} />
           {!errors.mde && !errors.baseline && mdeRel > 0 && (
             <div className="derived-line">
               = <strong>{fmtPct(mdeAbs)}</strong> absolute ({fmtPct(p1)} → {fmtPct(p1 * (1 + mdeRel))})
+              <Explainer id="mdeabs" inline />
             </div>
           )}
         </Field>
-        <Explainer id="mde" />
-        <Explainer id="mdeabs" />
 
         <Field label="Visitors (all variants combined)" htmlFor="pre-traffic" error={errors.traffic}>
           <div className="traffic-row">
@@ -839,27 +844,34 @@ function PreTest({ confidence, twoTailed }) {
         {k >= 3 && (
           <p className="note">
             Testing {comparisons} variants against control — the sample sizes below already include
-            the correction this needs, so the duration estimate is honest for a multi-variant test.
+            the correction this needs <Explainer id="holm" inline />, so the duration estimate is honest for a multi-variant test.
           </p>
         )}
-        {k >= 3 && <Explainer id="holm" />}
 
         <Field label="Traffic split (defaults to equal)" htmlFor={undefined}>
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="pre" />
         </Field>
 
-        <SegControl
-          legend="Statistical power"
-          name="power"
-          value={power}
-          onChange={setPower}
-          explainerId="power"
-          options={[
-            { value: 0.7, label: "70%" },
-            { value: 0.8, label: "80%" },
-            { value: 0.9, label: "90%" },
-          ]}
-        />
+        <Field label="Statistical power" explainerId="power">
+          <div className="seg-row" role="radiogroup" aria-label="Statistical power">
+            {[
+              { value: 0.7, label: "70%" },
+              { value: 0.8, label: "80%" },
+              { value: 0.9, label: "90%" },
+            ].map((o) => (
+              <label key={o.value} className={`seg-opt ${power === o.value ? "seg-on" : ""}`}>
+                <input
+                  type="radio"
+                  name="power"
+                  value={o.value}
+                  checked={power === o.value}
+                  onChange={() => setPower(o.value)}
+                />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </Field>
 
         <button type="button" className="btn-calc"
           onClick={() => {
@@ -878,12 +890,13 @@ function PreTest({ confidence, twoTailed }) {
 
       <section className="panel results" aria-live="polite" aria-labelledby="pre-r">
         <div className="results-head">
-          <h2 id="pre-r" className="panel-title">What you'll need</h2>
-          <div className="test-chip">
-            Z-test · {twoTailed ? "two-tailed" : "one-tailed"} · {Math.round(confidence * 100)}% confidence · {Math.round(power * 100)}% power
+          <h2 id="pre-r" className="panel-title">Results</h2>
+          <div className="test-chip-row">
+            <div className="test-pill">{twoTailed ? "Two-tailed" : "One-tailed"}</div>
+            <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
+            <div className="test-pill">{Math.round(power * 100)}% power</div>
           </div>
         </div>
-        <Explainer id="ztest" inline />
         {result && (
           <ExportButtons
             onCsv={() => {
@@ -930,7 +943,7 @@ function PreTest({ confidence, twoTailed }) {
             ])}
           />
         )}
-        {!result && <p className="empty">Fill in the inputs above and press Calculate to see required sample sizes and duration.</p>}
+        {!result && <p className="empty">Enter your test details to calculate required sample sizes and duration.</p>}
         {result && (
           <>
             <div className="stat-row">
@@ -1128,6 +1141,11 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
       <div className="v2-header">
         <div className="v2-verdict-wrap">
           <Verdict kind={kind} />
+          <div style={{display:'flex', gap:'8px', alignItems:'center', marginTop:'4px'}}>
+            <Explainer id="pvalue" inline />
+            <Explainer id="confpct" inline />
+            {corrected && <Explainer id="holm" inline />}
+          </div>
           <h4 className="v2-title">{name}</h4>
         </div>
         <div className="v2-conf-pill">
@@ -1256,7 +1274,7 @@ function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw
       <div className="v2-details">
         <div className="v2-d-row">
           <div className="v2-d-col">
-            <span className="v2-d-label">Acceptable Margin</span>
+            <span className="v2-d-label">Acceptable Margin <Explainer id="noninf" inline /></span>
             <span className="v2-d-val">−{fmtPct(marginRel)}</span>
           </div>
           <div className="v2-d-col">
@@ -1335,7 +1353,6 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="cvr-h">
-        <h2 id="cvr-h" className="panel-title">Enter your test data</h2>
         <p className="field-hint">Raw counts only — conversion rates are calculated for you.</p>
 
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="cvr-k" />
@@ -1365,11 +1382,11 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
         {isNonInf && (
           <>
             <Field label="Acceptable margin (relative drop you can live with, %)" htmlFor="cvr-margin"
+              explainerId="noninf"
               hint="Example: 1% means you'll accept the variant as long as it isn't more than 1% below control.">
               <input id="cvr-margin" className="input" type="number" min="0" step="0.1"
                 value={marginPct} onChange={(e) => setMarginPct(e.target.value)} />
             </Field>
-            <Explainer id="noninf" />
           </>
         )}
 
@@ -1402,11 +1419,10 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
           );
         })}
 
-        <Field label="Planned traffic split (for the traffic split check)" htmlFor={undefined}
+        <Field label="Planned traffic split (for the traffic split check)" htmlFor={undefined} explainerId="srm"
           hint="Defaults to an equal split — change it if your experiment was set up with an unequal split.">
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="cvr" />
         </Field>
-        <Explainer id="srm" />
 
         <Field label="Test duration in days (optional)" htmlFor="cvr-days">
           <input id="cvr-days" className="input" type="number" min="1" step="1"
@@ -1430,14 +1446,14 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
 
       <section className="panel results" aria-live="polite" aria-labelledby="cvr-r">
         <div className="results-head">
-          <h2 id="cvr-r" className="panel-title">{isNonInf ? "Non-inferiority results" : "Z-test results"}</h2>
-          <div className="test-chip">
-            {isNonInf
-              ? `One-tailed · ${Math.round(confidence * 100)}% confidence · ${fmtPct(marginRel)} margin`
-              : `${twoTailed ? "Two-tailed" : "One-tailed"} · ${Math.round(confidence * 100)}% confidence${corrected ? " · corrected for multiple variants" : ""}`}
+          <h2 id="cvr-r" className="panel-title">Results</h2>
+          <div className="test-chip-row">
+            <div className="test-pill">{isNonInf ? "One-tailed" : (twoTailed ? "Two-tailed" : "One-tailed")}</div>
+            <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
+            {isNonInf && <div className="test-pill">{fmtPct(marginRel)} margin</div>}
+            {!isNonInf && corrected && <div className="test-pill">Multi-variant corrected</div>}
           </div>
         </div>
-        <Explainer id={isNonInf ? "noninf" : "ztest"} inline />
         {ready && (
           <ExportButtons
             onCsv={() => {
@@ -1494,7 +1510,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
             }}
           />
         )}
-        {!ready && <p className="empty">Fill in your test data above and press Calculate to see results.</p>}
+        {!ready && <p className="empty">Enter your test data to calculate results.</p>}
         {ready && (
           <>
             <SrmBanner srm={srm} />
@@ -1542,9 +1558,6 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
                 confidence={confidence} twoTailed={twoTailed}
               />
             )}
-            {!isNonInf && <Explainer id="pvalue" />}
-            {!isNonInf && <Explainer id="confpct" />}
-            {!isNonInf && corrected && <Explainer id="holm" />}
           </>
         )}
       </section>
@@ -1871,15 +1884,13 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="rev-h">
-        <h2 id="rev-h" className="panel-title">Order revenue data</h2>
 
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="rev-k" />
 
-        <Field label="Planned traffic split" htmlFor={undefined}
+        <Field label="Planned traffic split" htmlFor={undefined} explainerId="srm"
           hint="Defaults to an equal split — change it if your experiment used an unequal split (e.g. 30/70).">
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="rev" />
         </Field>
-        <Explainer id="srm" />
 
         <h3 className="block-title">Traffic & Conversions per variant</h3>
         <p className="field-hint">Pulled from the Conversion rate tab if entered there — edit here to fix mismatches with your files.</p>
@@ -1956,8 +1967,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
 
         <div className="outlier-wrap">
           <div className="outlier-header">
-            <h3 className="block-title" style={{margin:0}}>Outlier handling</h3>
-            <Explainer id="winsorize" inline />
+            <h3 className="block-title" style={{margin:0}}>Outlier handling <Explainer id="winsorize" inline /></h3>
           </div>
           <label className="check-row">
             <input type="checkbox" checked={winsorize}
@@ -1993,15 +2003,14 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
 
       <section className="panel results" aria-live="polite" aria-labelledby="rev-r">
         <div className="results-head">
-          <h2 id="rev-r" className="panel-title">Revenue results</h2>
-          <div className="test-chip">
-            {twoTailed ? 'Two-tailed' : 'One-tailed'} · {Math.round(confidence * 100)}% confidence
-            {corrected ? ' · corrected for multiple variants' : ''}
-            {winsorize ? ' · outliers capped' : ''}
+          <h2 id="rev-r" className="panel-title">Results</h2>
+          <div className="test-chip-row">
+            <div className="test-pill">{twoTailed ? 'Two-tailed' : 'One-tailed'}</div>
+            <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
+            {corrected && <div className="test-pill">Multi-variant corrected</div>}
+            {winsorize && <div className="test-pill">Outliers capped</div>}
           </div>
         </div>
-        <Explainer id="ttest" inline />
-        <Explainer id="metrics" inline />
         {analysis && (
           <ExportButtons
             onCsv={() => {
@@ -2047,7 +2056,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
             }}
           />
         )}
-        {!analysis && <p className="empty">Add your data above and press Calculate to see revenue per visitor and average order value results.</p>}
+        {!analysis && <p className="empty">Enter your test data to calculate results.</p>}
         {analysis && (
           <>
             <SrmBanner srm={analysis.srm} />
@@ -2058,7 +2067,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               </p>
             )}
             <div className={analysis.srm && analysis.srm.flagged ? 'dimmed' : ''}>
-              <h3 className="sub-title">Revenue per visitor</h3>
+              <h3 className="sub-title">Revenue per visitor <Explainer id="aovrpv" inline /> {corrected && <Explainer id="holm" inline />}</h3>
               <p className="field-hint">
                 Revenue Per Visitor (RPV) is the average amount of revenue generated by every person who entered the test, including those who didn't buy anything.
               </p>
@@ -2081,7 +2090,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 />
               ))}
 
-              <h3 className="sub-title">Average order value</h3>
+              <h3 className="sub-title">Average order value <Explainer id="aovrpv" inline /> {corrected && <Explainer id="holm" inline />}</h3>
               <div className="aov-warning">
                 <strong>Important:</strong> Average order value only looks at people who made a purchase. 
                 If you use AOV as your primary metric, you might declare a winner that actually loses you money 
@@ -2106,8 +2115,6 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 />
               ))}
             </div>
-            <Explainer id="aovrpv" />
-            {corrected && <Explainer id="holm" />}
           </>
         )}
       </section>
@@ -2117,7 +2124,51 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
 
 /* ───────────────────────── App shell ──────────────────────────── */
 
+const ThemeToggle = ({ theme, toggle }) => (
+  <button 
+    type="button" 
+    className="theme-toggle" 
+    onClick={toggle}
+    aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+    title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+  >
+    {theme === 'light' ? (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+      </svg>
+    ) : (
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="5" />
+        <line x1="12" y1="1" x2="12" y2="3" />
+        <line x1="12" y1="21" x2="12" y2="23" />
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+        <line x1="1" y1="12" x2="3" y2="12" />
+        <line x1="21" y1="12" x2="23" y2="12" />
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+      </svg>
+    )}
+  </button>
+);
+
 export default function EclipseCalculator() {
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('eclipse-theme');
+      if (saved) return saved;
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    return 'light';
+  });
+
+  React.useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('eclipse-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+
   const [mode, setMode] = useState("pre");
   const [postTab, setPostTab] = useState("cvr");
   const [confidence, setConfidence] = useState(0.95);
@@ -2152,6 +2203,9 @@ export default function EclipseCalculator() {
         <div className="mast-inner">
           <EclipseWordmark />
           <div className="tagline">A/B test calculator</div>
+          <div style={{marginLeft: 'auto'}}>
+            <ThemeToggle theme={theme} toggle={toggleTheme} />
+          </div>
         </div>
       </header>
 
@@ -2234,14 +2288,41 @@ const CSS = `
   --paper:#F7F6FA; --card:#FFFFFF; --ink:#1C1328; --muted:#6B6478;
   --line:#E9E6F0;
   --pink:#DC004A; --pink-deep:#B0003B; --pink-soft:#FCE6EE;
+  --grey-disabled:#E0E0E0; --text-disabled:#9E9E9E;
   --purple:#4A3787; --purple-deep:#382A68; --purple-soft:#F0EEFA;
   --purple-bright:#6441C3; --avatar:#CBCAFF;
   --navy:#1C1328; --amber:#F1C40F;
-  --grad:linear-gradient(100deg,#DC004A 0%,#8E2173 52%,#4A3787 100%);
+  --grad:var(--purple);
   --win:#157347; --win-bg:#E7F6EE; --lose:#B3261E; --lose-bg:#FCEDEB;
   --ns:#6B6478; --ns-bg:#F0EEF4; --warn-bg:#FEF7E0; --warn-edge:#B8920A;
   --shadow:0 1px 2px rgba(26,18,41,.05), 0 10px 30px -12px rgba(26,18,41,.13);
   --radius:15px;
+}
+[data-theme='dark'] {
+  --paper:#09090B; --card:#18181B; --ink:#FAFAFA; --muted:#A1A1AA;
+  --line:#27272A;
+  --pink:#F43F5E; --pink-deep:#E11D48; --pink-soft:#4C0519;
+  --grey-disabled:#27272A; --text-disabled:#52525B;
+  --purple:#818CF8; --purple-deep:#E0E7FF; --purple-soft:#1E1B4B;
+  --purple-bright:#6366F1; --avatar:#312E81;
+  --navy:#FAFAFA; --amber:#FBBF24;
+  --win:#10B981; --win-bg:#064E3B; --lose:#EF4444; --lose-bg:#450A0A;
+  --ns:#71717A; --ns-bg:#18181B; --warn-bg:#422006; --warn-edge:#FBBF24;
+  --shadow:0 1px 3px rgba(0,0,0,.5), 0 20px 40px -12px rgba(0,0,0,.7);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --paper:#110D1A; --card:#1C1328; --ink:#F0EEFA; --muted:#A9A2B5;
+    --line:#2D243D;
+    --pink:#FF1A6A; --pink-deep:#DC004A; --pink-soft:#3D1224;
+    --grey-disabled:#3D344D; --text-disabled:#6B6478;
+    --purple:#CBCAFF; --purple-deep:#F0EEFA; --purple-soft:#2D243D;
+    --purple-bright:#8E7DFF; --avatar:#4A3787;
+    --navy:#F0EEFA; --amber:#F1C40F;
+    --win:#28A745; --win-bg:#122B1E; --lose:#FF4D4D; --lose-bg:#3D1414;
+    --ns:#A9A2B5; --ns-bg:#241E2D; --warn-bg:#2D2605; --warn-edge:#F1C40F;
+    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.5);
+  }
 }
 .app{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;background:var(--paper);color:var(--ink);
   min-height:100vh;padding:0 16px 56px;font-size:15.5px;line-height:1.55;letter-spacing:-0.025em;
@@ -2262,6 +2343,10 @@ const CSS = `
 .brand-word{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:30px;color:var(--pink);
   letter-spacing:-0.03em;line-height:1.2;}
 .tagline{color:var(--muted);font-size:15px;padding-top:6px;}
+.theme-toggle{background:var(--card);border:1.5px solid var(--line);border-radius:10px;
+  width:40px;height:40px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;color:var(--purple);transition:all .15s;box-shadow:var(--shadow);}
+.theme-toggle:hover{border-color:var(--purple);background:var(--purple-soft);}
 
 /* tabs */
 .mode-tabs{max-width:1080px;margin:26px auto 0;display:flex;gap:12px;flex-wrap:wrap;}
@@ -2288,9 +2373,9 @@ const CSS = `
 /* settings */
 .settings{max-width:1080px;margin:16px auto 0;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 20px;display:flex;gap:36px;
-  flex-wrap:wrap;align-items:flex-start;}
-.seg{border:0;padding:0;margin:0;}
-.seg-legend{font-weight:600;font-size:13.5px;margin-bottom:7px;padding:0;}
+  flex-wrap:wrap;align-items:flex-start;justify-content:flex-start;}
+.seg{border:0;padding:0;margin:0;display:flex;flex-direction:column;align-items:flex-start;}
+.seg-legend{font-weight:600;font-size:13.5px;margin-bottom:7px;padding:0;text-align:left;}
 .seg-row{display:inline-flex;background:var(--paper);border:1px solid var(--line);
   border-radius:999px;padding:3px;flex-wrap:wrap;}
 .seg-opt{padding:6px 16px;font-size:14px;cursor:pointer;color:var(--muted);
@@ -2329,13 +2414,13 @@ const CSS = `
 .detail-toggle{display:inline-flex;align-items:center;gap:7px;background:none;border:0;padding:4px 0;
   color:var(--purple);font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
 .detail-card{margin-top:10px;background:var(--paper);border:1px solid var(--line);
-  border-radius:12px;padding:14px 16px;overflow:hidden;min-width:0;}
+  border-radius:12px;padding:14px 16px;min-width:0;}
 .detail-table-wrap{overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:thin;}
 .detail-table{width:100%;border-collapse:collapse;font-size:12px;
   font-variant-numeric:tabular-nums;}
 @media (max-width:600px){
   .detail-table thead { display: none; }
-  .detail-table tbody tr { display: block; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px; padding: 8px; background: #fff; }
+  .detail-table tbody tr { display: block; border: 1px solid var(--line); border-radius: 8px; margin-bottom: 12px; padding: 8px; background: var(--card); }
   .detail-table tbody th, .detail-table tbody td { display: flex; justify-content: space-between; border: 0; padding: 6px 4px; text-align: right; }
   .detail-table tbody th { text-align: left; border-bottom: 1px solid var(--line); margin-bottom: 4px; padding-bottom: 8px; }
   .detail-table tbody td::before { content: attr(data-label); font-weight: 600; color: var(--muted); text-align: left; padding-right: 10px; }
@@ -2354,7 +2439,10 @@ const CSS = `
   padding:13px 20px;font-size:15.5px;font-weight:700;cursor:pointer;margin-top:18px;
   font-family:'Inter',sans-serif;letter-spacing:.01em;}
 .btn-calc:hover{background:var(--pink-deep);}
-.btn-calc:disabled{background:var(--line);color:var(--muted);cursor:not-allowed;}
+.btn-calc:disabled{background:var(--grey-disabled);color:var(--text-disabled);cursor:not-allowed;}
+.test-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;}
+.test-pill{font-size:12px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
+  border:1px solid #DCC9EE;border-radius:999px;padding:4px 12px;white-space:nowrap;}
 .test-chip{font-size:12.5px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
   border:1px solid #E3D5F0;border-radius:999px;padding:5px 14px;white-space:nowrap;}
 .sub-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:16px;line-height:1.5;
@@ -2396,7 +2484,7 @@ const CSS = `
 .format-title{font-size:12.5px;font-weight:600;color:var(--muted);background:var(--paper);
   padding:7px 12px;border-bottom:1px solid var(--line);}
 .format-pre{margin:0;padding:10px 12px;font-size:13px;line-height:1.6;
-  font-family:ui-monospace,Menlo,monospace;color:var(--ink);background:#fff;}
+  font-family:ui-monospace,Menlo,monospace;color:var(--ink);background:var(--paper);}
 
 /* variants & allocation */
 .arm-row{border-top:1px dashed var(--line);padding-top:14px;margin-top:14px;}
@@ -2409,20 +2497,28 @@ const CSS = `
 .alloc-cell .input{max-width:110px;}
 
 /* explainers */
-.explainer{margin:4px 0 16px;}
-.explainer-inline{margin:2px 0 12px;}
-.explainer-toggle{display:flex;align-items:center;gap:8px;background:none;border:0;padding:2px 0;
-  color:var(--purple);font-size:13.5px;font-weight:600;cursor:pointer;text-align:left;
-  font-family:'Inter',sans-serif;}
-.exp-ring{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
-  background:var(--purple-soft);border:1px solid #DCC9EE;border-radius:50%;font-size:11.5px;
-  flex:none;color:var(--purple);}
-.exp-lead{margin:0 0 8px;}
-.exp-bullets{margin:0 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:5px;}
+.explainer{position:relative;display:inline-flex;align-items:center;line-height:1;}
+.explainer-inline{margin:0 0 0 4px;}
+.explainer-toggle{display:inline-flex;align-items:center;justify-content:center;background:none;border:0;padding:0;
+  color:var(--purple);cursor:pointer;text-align:left;font-family:'Inter',sans-serif;line-height:1;}
+.exp-ring{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
+  background:var(--purple-soft);border:1px solid #DCC9EE;border-radius:50%;font-size:10px;
+  flex:none;color:var(--purple);font-weight:700;line-height:1;margin-top:-1px;}
+.explainer-body{position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:100;margin-top:8px;background:var(--card);
+  border:1px solid var(--line);padding:14px 16px;font-size:13.5px;border-radius:12px;
+  box-shadow:var(--shadow);width:280px;color:var(--ink);text-align:left;}
+@media (max-width:480px){.explainer-body{width:240px;}}
+.exp-title{font-weight:700;margin-bottom:6px;color:var(--navy);font-size:14px;}
+.exp-lead{margin:0 0 8px;line-height:1.4;}
+.exp-bullets{margin:0 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:5px;line-height:1.4;}
 .exp-bullets li{padding-left:2px;}
-.exp-foot{margin:0;color:var(--purple-deep);}
-.explainer-body{margin-top:7px;background:var(--purple-soft);border-left:3px solid var(--purple);
-  padding:11px 13px;font-size:13.5px;border-radius:0 10px 10px 0;max-width:60ch;}
+.exp-foot{margin:0;color:var(--muted);font-size:12.5px;line-height:1.4;}
+
+/* fields */
+.field{margin:0 0 20px;}
+.field-label-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.field-label{display:block;font-weight:600;font-size:13.5px;margin:0;}
+.field-hint{color:var(--muted);font-size:13.5px;margin:-2px 0 8px;max-width:58ch;text-align:left;}
 
 /* results */
 .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 10px;}
@@ -2449,7 +2545,7 @@ const CSS = `
   .vertical-on-mobile tbody td::before { content: attr(data-label); font-weight: 600; color: var(--muted); }
 }
 
-.result-card-v2{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin:16px 0;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.result-card-v2{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin:16px 0;box-shadow:var(--shadow);position:relative;}
 @media (max-width:600px){
   .result-card-v2{padding:16px;}
 }
@@ -2495,7 +2591,7 @@ const CSS = `
 .v2-footer{margin-top:16px;}
 
 .result-card{border:1px solid var(--line);border-radius:14px;padding:16px 18px;
-  margin:12px 0;background:#fff;box-shadow:var(--shadow);}
+  margin:12px 0;background:var(--card);box-shadow:var(--shadow);}
 .result-head{display:flex;justify-content:space-between;align-items:center;gap:10px;
   flex-wrap:wrap;margin-bottom:12px;}
 .result-name{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:15.5px;font-weight:600;margin:0;}
@@ -2574,7 +2670,7 @@ const CSS = `
 .upload-zone{margin:10px 0 6px;}
 .upload-label{display:flex;flex-direction:column;align-items:center;justify-content:center;
   gap:5px;border:2px dashed var(--line);border-radius:12px;padding:18px 16px;cursor:pointer;
-  text-align:center;background:#fff;transition:border-color .15s,background .15s;}
+  text-align:center;background:var(--card);transition:border-color .15s,background .15s;}
 .upload-label:hover,.upload-label:focus-within{border-color:var(--purple);background:var(--purple-soft);}
 .upload-label-filled{border-style:solid;border-color:var(--purple);background:var(--purple-soft);}
 .upload-icon{font-size:22px;line-height:1;}
