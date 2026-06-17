@@ -266,6 +266,24 @@ function requiredNPerArm(p1, mdeRel, alphaAdj, power, twoSided) {
   return Math.ceil(num / Math.pow(p2 - p1, 2));
 }
 
+// Sample size for continuous metrics (e.g. revenue)
+function requiredNPerArmContinuous(cv, mdeRel, alphaAdj, power, twoSided) {
+  if (cv <= 0 || mdeRel <= 0) return Infinity;
+  const za = normInv(twoSided ? 1 - alphaAdj / 2 : 1 - alphaAdj);
+  const zb = normInv(power);
+  const n = (2 * Math.pow(cv, 2) * Math.pow(za + zb, 2)) / Math.pow(mdeRel, 2);
+  return Math.ceil(n);
+}
+
+// Smallest detectable relative MDE for a given n per arm (continuous)
+function detectableMdeContinuous(cv, nAvail, alphaAdj, power, twoSided) {
+  if (nAvail < 2 || cv <= 0) return null;
+  const za = normInv(twoSided ? 1 - alphaAdj / 2 : 1 - alphaAdj);
+  const zb = normInv(power);
+  const mde = Math.sqrt((2 * Math.pow(cv, 2) * Math.pow(za + zb, 2)) / nAvail);
+  return mde;
+}
+
 // Smallest detectable relative MDE for a given n per arm (bisection)
 function detectableMde(p1, nAvail, alphaAdj, power, twoSided) {
   if (nAvail < 2) return null;
@@ -462,6 +480,15 @@ const EXPLAINERS = {
     label: "What is a p-value?",
     body: "If there were truly no difference between the variant and control, the p-value is the chance you'd still see a gap at least this large just from randomness. Smaller means harder to explain by chance. Example: p = 0.0300 means a gap this big would appear about 3 times in 100 even if nothing had really changed.",
   },
+  pvalue_adj: {
+    label: "What is an adjusted p-value?",
+    lead: "When testing multiple variants, the risk of a false positive (a 'fluke') increases. We use the Holm-Bonferroni correction to adjust for this.",
+    bullets: [
+      "p-value: The raw probability for this specific variant.",
+      "adj: The adjusted probability after accounting for the other variants in your test.",
+    ],
+    foot: "A result is only significant if the adjusted p-value is below your threshold.",
+  },
   confidence: {
     label: "What does the confidence level mean?",
     body: "Confidence protects you from shipping a fluke. It sets how sure you need to be before calling a variant a winner. At 95% (the industry standard), you accept a 1-in-20 risk of declaring a winner when the variant actually does nothing. At 99% that risk drops to 1-in-100 but you need more traffic; at 90% it rises to 1-in-10. 95% is the default as it's the standard business trade-off.",
@@ -523,6 +550,14 @@ const EXPLAINERS = {
   winsorize: {
     label: "What is capping outliers?",
     body: "Revenue data often contains 'whales' — a few customers who spend 10x or 100x more than the average. These outliers can skew your results and make a variant look like a winner just because one person made a huge purchase. Capping (Winsorizing) replaces these extreme values with a lower threshold (the 99th percentile), making your statistical test more robust and reliable.",
+  },
+  skewness: {
+    label: "What is data skewness?",
+    body: "Skewness measures how lopsided your data is. Revenue data is almost always 'right-skewed' because most people spend a little and a few spend a lot. If skewness is very high, the standard t-test can become unreliable. Our tool checks this for you and warns you if your data shape might be problematic for the standard test.",
+  },
+  cv: {
+    label: "What is the Coefficient of Variation (CV)?",
+    body: "The CV is the standard deviation divided by the mean. It tells you how much 'noise' there is in your data relative to the signal. For revenue, a CV of 1.0 to 2.5 is common. You need this to estimate how many visitors you'll need to detect a change in revenue.",
   },
 };
 
@@ -657,7 +692,9 @@ function AllocationEditor({ alloc, setAlloc, labels, idPrefix }) {
       <div className="alloc-grid">
         {alloc.map((v, i) => (
           <div key={i} className="alloc-cell">
-            <label className="field-label" htmlFor={`${idPrefix}-alloc-${i}`}>{labels[i]} %</label>
+            <label className="field-label" htmlFor={`${idPrefix}-alloc-${i}`} title={`${labels[i]} %`}>
+              {labels[i]} %
+            </label>
             <input
               id={`${idPrefix}-alloc-${i}`}
               className="input"
@@ -1009,6 +1046,316 @@ function PreTest({ confidence, twoTailed }) {
 }
 
 /* Expandable "show the working" detail — z-test internals + distribution chart */
+function PreTestRevenue({ confidence, twoTailed }) {
+  const [cv, setCv] = useState("1.5");
+  const [mde, setMde] = useState("");
+  const [traffic, setTraffic] = useState("");
+  const [period, setPeriod] = useState("week");
+  const [power, setPower] = useState(0.8);
+  const [k, setK] = useState(2);
+  const [alloc, setAlloc] = useState(equalSplit(2));
+  const [calculated, setCalculated] = useState(false);
+  const [sdCalcOpen, setSdCalcOpen] = useState(false);
+  const [sdInput, setSdInput] = useState("");
+  const [sdResult, setSdResult] = useState(null);
+
+  const labels = useMemo(() => makeLabels(k), [k]);
+  const setVariantCount = (next) => {
+    const kk = Math.max(2, Math.min(8, next));
+    setK(kk);
+    setAlloc(equalSplit(kk));
+  };
+
+  const runSdCalc = () => {
+    const raw = sdInput.split(/[\n,]/).map(v => v.trim().replace(/[£$€\s]/g, '').replace(/,/g, '')).filter(v => v !== "");
+    const vals = raw.map(Number).filter(v => !isNaN(v));
+    if (vals.length < 2) {
+      setSdResult({ error: "Paste at least 2 numbers to calculate standard deviation." });
+      return;
+    }
+    const m = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const s = Math.sqrt(vals.reduce((a, b) => a + Math.pow(b - m, 2), 0) / (vals.length - 1));
+    const calculatedCv = s / m;
+    setSdResult({ mean: m, sd: s, cv: calculatedCv, count: vals.length });
+    setCv(calculatedCv.toFixed(3));
+  };
+
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  React.useEffect(() => { setCalculated(false); },
+    [cv, mde, traffic, period, power, k, alloc, confidence, twoTailed]);
+
+  const errors = {};
+  const cvNum = Number(cv);
+  const mdeRel = Number(mde) / 100;
+  const trafficNum = Number(traffic);
+  const perWeekFactor = period === "day" ? 7 : period === "month" ? 12 / 52 : 1;
+  const wk = trafficNum * perWeekFactor;
+  
+  if (!(cvNum > 0)) errors.cv = "Enter a coefficient of variation greater than 0.";
+  if (!(mdeRel > 0)) errors.mde = "Enter a relative uplift greater than 0.";
+  if (!(trafficNum > 0)) errors.traffic = "Enter a number of visitors greater than 0.";
+  const allocSum = alloc.reduce((a, b) => a + (Number(b) || 0), 0);
+  const allocOk = Math.abs(allocSum - 100) <= 0.5 && alloc.every((a) => Number(a) > 0);
+
+  const alpha = 1 - confidence;
+  const comparisons = k - 1;
+  const alphaAdj = alpha / Math.max(1, comparisons);
+
+  const inputsValid = Object.keys(errors).length === 0 && allocOk;
+  let result = null;
+  if (calculated && inputsValid) {
+    const nPerArm = requiredNPerArmContinuous(cvNum, mdeRel, alphaAdj, power, twoTailed);
+    const minAllocFrac = Math.min(...alloc.map((a) => Number(a) / 100));
+    const weeks = Math.max(1, Math.ceil(nPerArm / (wk * minAllocFrac)));
+    const chart = [];
+    for (let w = 1; w <= 12; w++) {
+      const nAvail = Math.floor(wk * minAllocFrac * w);
+      const d = detectableMdeContinuous(cvNum, nAvail, alphaAdj, power, twoTailed);
+      chart.push({ week: w, mde: d != null ? +(d * 100).toFixed(2) : null });
+    }
+    result = { nPerArm, total: nPerArm * k, weeks, chart };
+  }
+
+  return (
+    <div className="two-col">
+      <section className="panel" aria-labelledby="pre-rev-h">
+        <Field label="Coefficient of Variation (CV)" htmlFor="pre-cv" error={errors.cv} explainerId="cv"
+          hint="Standard deviation divided by the mean. Usually between 1.0 and 2.5 for revenue.">
+          <input id="pre-cv" className="input" type="number" min="0" step="0.01" placeholder="e.g. 1.5"
+            value={cv} onChange={(e) => setCv(e.target.value)} />
+        </Field>
+
+        <div className="sd-calc-section">
+          <button type="button" className="btn-text" onClick={() => setSdCalcOpen(!sdCalcOpen)}>
+            {sdCalcOpen ? "− Hide" : "+ Don't know your CV? Calculate it from historical data"}
+          </button>
+          {sdCalcOpen && (
+            <div className="sd-calc-box">
+              <p className="field-hint">
+                Paste a list of individual order values (the total revenue from each transaction) from a recent period, such as the last 30 days. 
+                This calculates the spread (CV) of your revenue data, which is required to plan a revenue-based test.
+              </p>
+              <textarea
+                className="input"
+                style={{height: '100px', fontSize: '13px'}}
+                placeholder="Paste values here (one per line or comma-separated)...&#10;e.g.&#10;45.00&#10;120.50&#10;89.99"
+                value={sdInput}
+                onChange={e => setSdInput(e.target.value)}
+              />
+              <button type="button" className="btn-calc" style={{marginTop: '8px'}} onClick={runSdCalc}>
+                Calculate CV
+              </button>
+              {sdResult && (
+                <div className="sd-result">
+                  {sdResult.error ? (
+                    <div className="field-error">{sdResult.error}</div>
+                  ) : (
+                    <div className="stat-grid" style={{marginTop: '12px', gridTemplateColumns: '1fr 1fr 1fr'}}>
+                      <div className="stat">
+                        <div className="stat-label">Mean</div>
+                        <div className="stat-num" style={{fontSize: '18px'}}>{fmtMoney(sdResult.mean)}</div>
+                      </div>
+                      <div className="stat">
+                        <div className="stat-label">Std Dev</div>
+                        <div className="stat-num" style={{fontSize: '18px'}}>{fmtMoney(sdResult.sd)}</div>
+                      </div>
+                      <div className="stat">
+                        <div className="stat-label">CV</div>
+                        <div className="stat-num" style={{fontSize: '18px'}}>{(sdResult.cv * 100).toFixed(1)}%</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Field
+          label="Minimum detectable effect (relative uplift, %)"
+          htmlFor="pre-rev-mde"
+          hint="The smallest uplift in revenue worth detecting."
+          error={errors.mde}
+          explainerId="mde"
+        >
+          <input id="pre-rev-mde" className="input" type="number" min="0" step="0.1" placeholder="e.g. 5"
+            value={mde} onChange={(e) => setMde(e.target.value)} />
+        </Field>
+
+        <Field label="Visitors (all variants combined)" htmlFor="pre-rev-traffic" error={errors.traffic}>
+          <div className="traffic-row">
+            <input id="pre-rev-traffic" className="input" type="number" min="1" step="1" placeholder="e.g. 50,000"
+              value={traffic} onChange={(e) => setTraffic(e.target.value)} />
+            <select className="input select" value={period} aria-label="Traffic period"
+              onChange={(e) => setPeriod(e.target.value)}>
+              <option value="day">Daily</option>
+              <option value="week">Weekly</option>
+              <option value="month">Monthly</option>
+            </select>
+          </div>
+        </Field>
+
+        <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-rev-k" />
+        
+        <Field label="Traffic split (defaults to equal)" htmlFor={undefined}>
+          <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="pre-rev" />
+        </Field>
+
+        <Field label="Statistical power" explainerId="power">
+          <div className="seg-row" role="radiogroup" aria-label="Statistical power">
+            {[
+              { value: 0.7, label: "70%" },
+              { value: 0.8, label: "80%" },
+              { value: 0.9, label: "90%" },
+            ].map((o) => (
+              <label key={o.value} className={`seg-opt ${power === o.value ? "seg-on" : ""}`}>
+                <input
+                  type="radio"
+                  name="power-rev"
+                  value={o.value}
+                  checked={power === o.value}
+                  onChange={() => setPower(o.value)}
+                />
+                {o.label}
+              </label>
+            ))}
+          </div>
+        </Field>
+
+        <button type="button" className="btn-calc"
+          onClick={() => {
+            setCalculated(true);
+            setTimeout(() => {
+              const resultsEl = document.querySelector('.results');
+              if (resultsEl) {
+                resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }
+            }, 100);
+          }} 
+          disabled={!inputsValid}>
+          Calculate
+        </button>
+      </section>
+
+      <section className="panel results" aria-live="polite" aria-labelledby="pre-rev-r">
+        <div className="results-head">
+          <h2 id="pre-rev-r" className="panel-title">Results</h2>
+          <div className="test-chip-row">
+            <div className="test-pill">{twoTailed ? "Two-tailed" : "One-tailed"}</div>
+            <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
+            <div className="test-pill">{Math.round(power * 100)}% power</div>
+          </div>
+        </div>
+        {result && (
+          <ExportButtons
+            onCsv={() => {
+              const rows = [
+                ["Eclipse — Revenue planning", ""],
+                ["Generated", new Date().toLocaleString("en-GB")],
+                [],
+                ["Inputs", ""],
+                ["Coefficient of Variation (CV)", cv],
+                ["Minimum detectable effect (relative)", `${mde}%`],
+                ["Visitors", `${traffic} ${period === "day" ? "per day" : period === "month" ? "per month" : "per week"}`],
+                ["Variants (incl. control)", k],
+                ["Confidence level", `${Math.round(confidence*100)}%`],
+                ["Statistical power", `${Math.round(power*100)}%`],
+                ["Tails", twoTailed ? "Two-tailed" : "One-tailed"],
+                [],
+                ["Results", ""],
+                ["Visitors required per variant", result.nPerArm],
+                ["Total visitors required", result.total],
+                ["Estimated duration", `${result.weeks} weeks`],
+                [],
+                ["Detectable uplift %", ...result.chart.map(c => c.mde ?? "")],
+              ];
+              downloadBlob(toCsv(rows), `eclipse-plan-rev-${stamp()}.csv`, "text/csv");
+            }}
+            onPdf={() => {
+              exportPdf("Revenue test planning", [
+                { heading: "Setup", lines: [
+                  `Coefficient of Variation (CV): ${cv}`,
+                  `Minimum detectable effect (relative): ${mde}%`,
+                  `Visitors: ${traffic} ${period === "day" ? "per day" : period === "month" ? "per month" : "per week"}`,
+                  `Variants (incl. control): ${k}`,
+                  `Confidence: ${Math.round(confidence*100)}%   Power: ${Math.round(power*100)}%   ${twoTailed ? "Two-tailed" : "One-tailed"}`,
+                ]},
+                { heading: "Results", lines: [
+                  `Visitors required per variant: ${fmtInt(result.nPerArm)}`,
+                  `Total visitors required: ${fmtInt(result.total)}`,
+                  `Estimated duration: ${result.weeks} ${result.weeks === 1 ? "week" : "weeks"}`,
+                ]},
+                { heading: "Detectable relative uplift by duration", lines:
+                  result.chart.map(c => `Week ${c.week}: ${c.mde != null ? c.mde + "%" : "—"}`) },
+              ]);
+            }}
+          />
+        )}
+        {!result && <p className="empty">Enter your test details to calculate required sample sizes and duration.</p>}
+        {result && (
+          <>
+            <div className="stat-row">
+              <div className="stat">
+                <div className="stat-label">Visitors per variant</div>
+                <div className="stat-num">{fmtInt(result.nPerArm)}</div>
+              </div>
+              <div className="stat">
+                <div className="stat-label">Total visitors</div>
+                <div className="stat-num">{fmtInt(result.total)}</div>
+              </div>
+              <div className="stat stat-hero">
+                <div className="stat-label">Estimated duration</div>
+                <div className="stat-num">{result.weeks} {result.weeks === 1 ? "week" : "weeks"}</div>
+              </div>
+            </div>
+            {result.weeks < 2 && (
+              <p className="note">
+                This plan completes in under 2 weeks. Behaviour varies across the week
+                (weekday vs weekend, pay cycles) — running at least 1–2 full weeks is recommended
+                regardless.
+              </p>
+            )}
+            <h3 className="sub-title">Detectable uplift by duration</h3>
+            <p className="field-hint">
+              How small a relative uplift this traffic can reliably detect if you run for longer.
+            </p>
+            <div className="chart-wrap">
+              <ResponsiveContainer width="100%" height={220}>
+                <LineChart data={result.chart} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                  <CartesianGrid stroke="#EFE8F3" strokeDasharray="2 4" />
+                  <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#6E5A7A" }}
+                    label={{ value: "Weeks", position: "insideBottom", offset: -2, fontSize: 12, fill: "#6E5A7A" }} />
+                  <YAxis tick={{ fontSize: 12, fill: "#6E5A7A" }} unit="%" width={48} />
+                  <ChartTip formatter={(v) => [`${v}%`, "Detectable relative uplift"]}
+                    labelFormatter={(w) => `${w} week${w === 1 ? "" : "s"}`} />
+                  <Line type="monotone" dataKey="mde" stroke="#5B2A86" strokeWidth={2.5}
+                    dot={{ r: 3.5, fill: "#E4014E", stroke: "#fff", strokeWidth: 1.5 }} isAnimationActive={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <div className="detail-table-wrap">
+              <table className="mini-table vertical-on-mobile">
+                <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
+                <thead>
+                  <tr><th scope="col">Weeks</th>{result.chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <th scope="row">Uplift</th>
+                  {result.chart.map((r) => (
+                    <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
+                  ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function DistributionChart({ comparisons }) {
   // Each comparison: { name, p1, p2, seA, seB }. Draw normal sampling distributions.
   const normalPdf = (x, mu, s) => Math.exp(-0.5 * ((x - mu) / s) ** 2) / (s * Math.sqrt(2 * Math.PI));
@@ -1106,10 +1453,11 @@ function DetailedStats({ comparisons, confidence, twoTailed }) {
 
 function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   relUplift, pRaw, pAdj, corrected, ciBase, ciVar, baseCiLabel, varCiLabel,
-  confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore, goal = "increase" }) {
+  confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore, goal = "increase", skewVerdict }) {
   const alpha = 1 - confidence;
   const decisionP = corrected ? pAdj : pRaw;
   const sig = Number.isFinite(decisionP) && decisionP < alpha;
+
   let kind = "ns";
   if (sig && relUplift != null) {
     const isPositive = relUplift > 0;
@@ -1141,11 +1489,6 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
       <div className="v2-header">
         <div className="v2-verdict-wrap">
           <Verdict kind={kind} />
-          <div style={{display:'flex', gap:'8px', alignItems:'center', marginTop:'4px'}}>
-            <Explainer id="pvalue" inline />
-            <Explainer id="confpct" inline />
-            {corrected && <Explainer id="holm" inline />}
-          </div>
           <h4 className="v2-title">{name}</h4>
         </div>
         <div className="v2-conf-pill">
@@ -1155,6 +1498,13 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
       </div>
 
       <p className="v2-meaning">{meaning}</p>
+
+      {skewVerdict && skewVerdict.level !== 'low' && (
+        <div className={`skew-banner skew-${skewVerdict.level}`}>
+          <span className="skew-icon">!</span>
+          <span className="skew-text">{skewVerdict.text}</span>
+        </div>
+      )}
 
       <div className="v2-metrics">
         <div className="v2-metric-main">
@@ -1178,7 +1528,7 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
       <div className="v2-details">
         <div className="v2-d-row">
           <div className="v2-d-col">
-            <span className="v2-d-label">p-value</span>
+            <span className="v2-d-label">p-value <Explainer id={corrected ? "pvalue_adj" : "pvalue"} inline /></span>
             <span className="v2-d-val">{fmtP(pRaw)} {corrected && <small>(adj)</small>}</span>
           </div>
           <div className="v2-d-col">
@@ -1187,7 +1537,7 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
           </div>
           {ciBase && (
             <div className="v2-d-col">
-              <span className="v2-d-label">{baseCiLabel || "Control"} ({confPct}% CI)</span>
+              <span className="v2-d-label">{baseCiLabel || "Control"} ({confPct}% CI) <Explainer id="confpct" inline /></span>
               <span className="v2-d-val">{fmtCi(ciBase[0], ciBase[1])}</span>
             </div>
           )}
@@ -1845,11 +2195,26 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
       ? armData.map(a => a.orders.map(x => Math.min(x, p99)))
       : armData.map(a => a.orders);
 
+    const skewnessVerdict = (data) => {
+      const s = skewness(data);
+      const max = Math.max(...data);
+      const m = mean(data);
+      if (s > 5 || max > 10 * m) return {
+        level: 'high',
+        text: 'Heavily skewed data. The standard t-test may be less reliable. Capping outliers is strongly recommended.'
+      };
+      if (s > 2) return {
+        level: 'medium',
+        text: 'Moderately skewed data. Results are likely stable, but consider capping outliers if you have extreme values.'
+      };
+      return { level: 'low', text: 'Data distribution looks healthy for a standard t-test.' };
+    };
+
     const alpha    = 1 - confidence;
     const armStats = armData.map((a, i) => ({
       name:    a.name,
       rpv:     rpvStats(cappedOrders[i], a.visitors),
-      aov:     { m: mean(cappedOrders[i]), s: sd(cappedOrders[i]), n: cappedOrders[i].length },
+      aov:     { m: mean(cappedOrders[i]), s: sd(cappedOrders[i]), n: cappedOrders[i].length, skew: skewnessVerdict(a.orders) },
     }));
 
     const ctrl = armStats[0];
@@ -2067,11 +2432,11 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               </p>
             )}
             <div className={analysis.srm && analysis.srm.flagged ? 'dimmed' : ''}>
-              <h3 className="sub-title">Revenue per visitor <Explainer id="aovrpv" inline /> {corrected && <Explainer id="holm" inline />}</h3>
+              <h3 className="sub-title">Revenue per visitor <Explainer id="aovrpv" inline /></h3>
               <p className="field-hint">
                 Revenue Per Visitor (RPV) is the average amount of revenue generated by every person who entered the test, including those who didn't buy anything.
               </p>
-              {analysis.rpv.map(r => (
+              {analysis.rpv.map((r, i) => (
                 <ResultCard key={`rpv-${r.name}`}
                   name={`${r.name} vs Variant A (Control)`}
                   baseLabel="Variant A (Control) RPV" varLabel={`${r.name} RPV`}
@@ -2082,6 +2447,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   ciFmt={(lo, hi) => `${fmtMoney(lo)} – ${fmtMoney(hi)}`}
                   confidence={confidence} twoTailed={twoTailed}
                   zScore={{ label: "T-score", value: r.t }}
+                  skewVerdict={analysis.armStats[i+1].rpv.skew}
                   meaningOverride={
                     (corrected ? r.pAdj : r.pRaw) < 1 - confidence
                       ? `The difference is large enough to be a real effect, not random fluctuation — ${r.name} ${r.relUplift >= 0 ? "generated more" : "generated less"} revenue per visitor than Variant A.`
@@ -2090,13 +2456,13 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 />
               ))}
 
-              <h3 className="sub-title">Average order value <Explainer id="aovrpv" inline /> {corrected && <Explainer id="holm" inline />}</h3>
+              <h3 className="sub-title">Average order value <Explainer id="aovrpv" inline /></h3>
               <div className="aov-warning">
                 <strong>Important:</strong> Average order value only looks at people who made a purchase. 
                 If you use AOV as your primary metric, you might declare a winner that actually loses you money 
                 (e.g. if conversion rate crashes while AOV rises).
               </div>
-              {analysis.aov.map(r => (
+              {analysis.aov.map((r, i) => (
                 <ResultCard key={`aov-${r.name}`}
                   name={`${r.name} vs Variant A (Control)`}
                   baseLabel="Variant A (Control) AOV" varLabel={`${r.name} AOV`}
@@ -2107,6 +2473,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   ciFmt={(lo, hi) => `${fmtMoney(lo)} – ${fmtMoney(hi)}`}
                   confidence={confidence} twoTailed={twoTailed}
                   zScore={{ label: "T-score", value: r.t }}
+                  skewVerdict={analysis.armStats[i+1].aov.skew}
                   meaningOverride={
                     (corrected ? r.pAdj : r.pRaw) < 1 - confidence
                       ? `The difference is large enough to be a real effect, not random fluctuation — among buyers, ${r.name} had a ${r.relUplift >= 0 ? "higher" : "lower"} average order value than Variant A.`
@@ -2170,6 +2537,7 @@ export default function EclipseCalculator() {
   const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
 
   const [mode, setMode] = useState("pre");
+  const [preTab, setPreTab] = useState("cvr");
   const [postTab, setPostTab] = useState("cvr");
   const [confidence, setConfidence] = useState(0.95);
   const [tails, setTails] = useState("two");
@@ -2248,7 +2616,24 @@ export default function EclipseCalculator() {
         />
       </section>
 
-      {mode === "pre" && <PreTest key="pre" confidence={confidence} twoTailed={twoTailed} />}
+      {mode === "pre" && (
+        <>
+          <nav className="sub-tabs" aria-label="Metric">
+            <button type="button" className={`subtab ${preTab === "cvr" ? "subtab-on" : ""}`}
+              aria-pressed={preTab === "cvr"} onClick={() => setPreTab("cvr")}>
+              Conversion rate
+            </button>
+            <button type="button" className={`subtab ${preTab === "revenue" ? "subtab-on" : ""}`}
+              aria-pressed={preTab === "revenue"} onClick={() => setPreTab("revenue")}>
+              Revenue per visitor
+            </button>
+          </nav>
+          {preTab === "cvr" 
+            ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} />
+            : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} />
+          }
+        </>
+      )}
 
       {mode === "post" && (
         <>
@@ -2349,23 +2734,26 @@ const CSS = `
 .theme-toggle:hover{border-color:var(--purple);background:var(--purple-soft);}
 
 /* tabs */
-.mode-tabs{max-width:1080px;margin:26px auto 0;display:flex;gap:12px;flex-wrap:wrap;}
-.tab{flex:1;text-align:left;background:var(--card);border:1px solid var(--line);
+.mode-tabs{max-width:1080px;margin:26px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;}
+.tab{text-align:left;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);padding:16px 20px;cursor:pointer;box-shadow:var(--shadow);
   font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:17px;color:var(--ink);line-height:1.2;}
-@media (max-width:600px){.tab{min-width:0;width:100%;padding:12px 16px;}}
+@media (max-width:880px){
+  .mode-tabs{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;}
+  .tab{flex:1;min-width:0;width:100%;padding:12px 16px;}
+}
 .tab-sub{display:block;font-family:'Inter',sans-serif;font-weight:400;
   font-size:13px;color:var(--muted);margin-top:3px;}
 .tab-on{border-color:transparent;background:var(--grad);color:#fff;}
 .tab-on .tab-sub{color:rgba(255,255,255,.85);}
-.sub-tabs{max-width:1080px;margin:18px auto 0;display:flex;gap:8px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px;scrollbar-width:none;}
-.sub-tabs::-webkit-scrollbar{display:none;}
+.sub-tabs{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;}
 .subtab{background:var(--card);border:1px solid var(--line);border-radius:999px;
   padding:9px 16px;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;
-  font-family:'Inter',sans-serif;box-shadow:var(--shadow);white-space:nowrap;flex:1;text-align:center;}
-@media (max-width:600px){
-  .sub-tabs{gap:6px;}
-  .subtab{padding:8px 12px;font-size:12.5px;}
+  font-family:'Inter',sans-serif;box-shadow:var(--shadow);white-space:nowrap;text-align:center;}
+@media (max-width:880px){
+  .sub-tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;}
+  .sub-tabs::-webkit-scrollbar{display:none;}
+  .subtab{flex:1;padding:8px 12px;font-size:12.5px;}
 }
 .subtab-on{border-color:var(--pink);background:var(--pink-soft);color:var(--pink-deep);}
 .subtab-on:focus-visible{outline-color:var(--pink);}
@@ -2387,7 +2775,7 @@ const CSS = `
 /* layout */
 .two-col{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;align-items:start;}
 .two-col > *{min-width:0;max-width:100%;}
-.two-col .results{position:sticky;top:16px;min-width:0;overflow-x:hidden;}
+.two-col .results{position:sticky;top:16px;min-width:0;}
 @media (max-width:880px){
   .two-col{display:block;width:100%;}
   .two-col > *{margin-bottom:18px;}
@@ -2435,6 +2823,13 @@ const CSS = `
 .detail-table thead th{background:var(--card);font-weight:600;color:var(--muted);text-align:right;}
 .detail-table tbody th{text-align:left;font-weight:600;color:var(--navy);}
 .detail-formula{font-size:11.5px;color:var(--muted);margin:10px 0 0;line-height:1.6;}
+.btn-text{background:none;border:0;padding:0;color:var(--purple);font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin:4px 0 12px;}
+.btn-text:hover{text-decoration:underline;}
+.sd-calc-section{margin-bottom:20px;}
+.sd-calc-box{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:8px;}
+.sd-result .stat{padding:10px;background:var(--card);}
+.sd-result .stat-num{font-size:18px;}
+
 .btn-calc{width:100%;background:var(--pink);color:#fff;border:0;border-radius:11px;
   padding:13px 20px;font-size:15.5px;font-weight:700;cursor:pointer;margin-top:18px;
   font-family:'Inter',sans-serif;letter-spacing:.01em;}
@@ -2493,8 +2888,10 @@ const CSS = `
 .arm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 @media (max-width:560px){.arm-grid{grid-template-columns:1fr;gap:8px;}}
 .cvr-readout{display:block;padding:10px 0;font-size:15.5px;font-weight:600;}
-.alloc-grid{display:flex;gap:10px;flex-wrap:wrap;}
-.alloc-cell .input{max-width:110px;}
+.alloc-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;}
+.alloc-cell{min-width:0;}
+.alloc-cell .field-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.alloc-cell .input{width:100%;max-width:none;}
 
 /* explainers */
 .explainer{position:relative;display:inline-flex;align-items:center;line-height:1;}
@@ -2504,10 +2901,11 @@ const CSS = `
 .exp-ring{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
   background:var(--purple-soft);border:1px solid #DCC9EE;border-radius:50%;font-size:10px;
   flex:none;color:var(--purple);font-weight:700;line-height:1;margin-top:-1px;}
-.explainer-body{position:absolute;top:100%;left:50%;transform:translateX(-50%);z-index:100;margin-top:8px;background:var(--card);
+.explainer-body{position:absolute;top:100%;right:0;z-index:100;margin-top:8px;background:var(--card);
   border:1px solid var(--line);padding:14px 16px;font-size:13.5px;border-radius:12px;
-  box-shadow:var(--shadow);width:280px;color:var(--ink);text-align:left;}
-@media (max-width:480px){.explainer-body{width:240px;}}
+  box-shadow:var(--shadow);width:260px;color:var(--ink);text-align:left;
+  max-width:calc(100vw - 40px);}
+@media (max-width:480px){.explainer-body{width:220px;}}
 .exp-title{font-weight:700;margin-bottom:6px;color:var(--navy);font-size:14px;}
 .exp-lead{margin:0 0 8px;line-height:1.4;}
 .exp-bullets{margin:0 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:5px;line-height:1.4;}
@@ -2544,6 +2942,12 @@ const CSS = `
   .vertical-on-mobile tbody th, .vertical-on-mobile tbody td { display: flex; justify-content: space-between; border: 0; padding: 8px 0; }
   .vertical-on-mobile tbody td::before { content: attr(data-label); font-weight: 600; color: var(--muted); }
 }
+
+.skew-banner{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:16px;line-height:1.4;}
+.skew-high{background:var(--lose-bg);color:var(--lose);border:1px solid var(--lose);}
+.skew-medium{background:var(--warn-bg);color:var(--warn-edge);border:1px solid var(--warn-edge);}
+.skew-icon{font-weight:700;font-size:16px;flex:none;}
+.skew-text{flex:1;}
 
 .result-card-v2{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin:16px 0;box-shadow:var(--shadow);position:relative;}
 @media (max-width:600px){
