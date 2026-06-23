@@ -561,6 +561,143 @@ const EXPLAINERS = {
   },
 };
 
+const FAQ_ITEMS = [
+  {
+    q: "How do I know if my A/B test result is statistically significant?",
+    a: "A result is statistically significant when the difference between your variants is unlikely to be down to random fluctuation. This calculator compares your conversion rates and tells you, in plain English, whether the difference clears your chosen confidence level (90%, 95% or 99%).",
+  },
+  {
+    q: "How many visitors do I need for an A/B test?",
+    a: "It depends on your baseline conversion rate, the smallest improvement you want to detect, and how many variants you're testing. Enter those in the planning calculator and it returns the visitors needed per variant and an estimated test duration in weeks.",
+  },
+  {
+    q: "Can this calculator handle more than two variants?",
+    a: "Yes. It supports A/B/C/n tests and automatically applies the correct multiple-comparison correction, which many calculators either can't do or handle incorrectly.",
+  },
+  {
+    q: "Can I measure the effect on revenue, not just conversion rate?",
+    a: "Yes. Upload your order data and the calculator measures revenue per visitor and average order value, using the correct statistical test for revenue figures.",
+  },
+  {
+    q: "How long should I run an A/B test?",
+    a: "Run it until it reaches the sample size your plan calls for, and ideally for at least one to two full weeks so it captures normal variation across the week. The planning calculator estimates the duration for you.",
+  },
+];
+
+function useChartTheme() {
+  const [tick, setTick] = React.useState(0);
+  React.useEffect(() => {
+    const bump = () => setTick((n) => n + 1);
+    const obs = new MutationObserver(bump);
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    mq.addEventListener("change", bump);
+    return () => {
+      obs.disconnect();
+      mq.removeEventListener("change", bump);
+    };
+  }, []);
+  return React.useMemo(() => {
+    const cs = getComputedStyle(document.documentElement);
+    const v = (name, fb) => cs.getPropertyValue(name).trim() || fb;
+    return {
+      grid: v("--chart-grid", "#EFE8F3"),
+      tick: v("--chart-tick", "#6B6478"),
+      line: v("--chart-line", "#5B2A86"),
+      dot: v("--chart-dot", "#E4014E"),
+      dotStroke: v("--chart-dot-stroke", "#fff"),
+      control: v("--chart-control", "#9A93A8"),
+      tooltipBg: v("--chart-tooltip-bg", "#fff"),
+      tooltipBorder: v("--chart-tooltip-border", "#E9E6F0"),
+      tooltipText: v("--chart-tooltip-text", "#1C1328"),
+    };
+  }, [tick]);
+}
+
+function chartTipProps(colors) {
+  return {
+    contentStyle: {
+      background: colors.tooltipBg,
+      border: `1px solid ${colors.tooltipBorder}`,
+      borderRadius: 8,
+      fontSize: 13,
+      color: colors.tooltipText,
+    },
+    itemStyle: { color: colors.tooltipText },
+    labelStyle: { color: colors.tooltipText },
+  };
+}
+
+function DetectableUpliftSection({ chart, viewMode, setViewMode }) {
+  const colors = useChartTheme();
+  const tip = chartTipProps(colors);
+  return (
+    <>
+      <div className="sub-title-row">
+        <h3 className="sub-title">Detectable uplift by duration</h3>
+        <div className="view-toggle">
+          <button type="button" className={`view-btn ${viewMode === "chart" ? "view-btn-on" : ""}`}
+            onClick={() => setViewMode("chart")}>Chart</button>
+          <button type="button" className={`view-btn ${viewMode === "table" ? "view-btn-on" : ""}`}
+            onClick={() => setViewMode("table")}>Table</button>
+        </div>
+      </div>
+      <p className="field-hint">
+        How small a relative uplift this traffic can reliably detect if you run for longer.
+      </p>
+      {viewMode === "chart" ? (
+        <div className="chart-wrap">
+          <ResponsiveContainer width="100%" height={220}>
+            <LineChart data={chart} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+              <CartesianGrid stroke={colors.grid} strokeDasharray="2 4" />
+              <XAxis dataKey="week" tick={{ fontSize: 12, fill: colors.tick }}
+                label={{ value: "Weeks", position: "insideBottom", offset: -2, fontSize: 12, fill: colors.tick }} />
+              <YAxis tick={{ fontSize: 12, fill: colors.tick }} unit="%" width={48} />
+              <ChartTip formatter={(v) => [`${v}%`, "Detectable relative uplift"]}
+                labelFormatter={(w) => `${w} week${w === 1 ? "" : "s"}`} {...tip} />
+              <Line type="monotone" dataKey="mde" stroke={colors.line} strokeWidth={2.5}
+                dot={{ r: 3.5, fill: colors.dot, stroke: colors.dotStroke, strokeWidth: 1.5 }} isAnimationActive={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <div className="detail-table-wrap">
+          <table className="mini-table vertical-on-mobile">
+            <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
+            <thead>
+              <tr><th scope="col">Weeks</th>{chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
+            </thead>
+            <tbody>
+              <tr>
+                <th scope="row">Uplift</th>
+                {chart.map((r) => (
+                  <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
+                ))}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
+function FaqSection() {
+  return (
+    <section className="faq-section" aria-labelledby="faq-heading">
+      <h2 id="faq-heading" className="faq-heading">Frequently asked questions</h2>
+      <div className="faq-list">
+        {FAQ_ITEMS.map(({ q, a }) => (
+          <article key={q} className="faq-item">
+            <h3 className="faq-q">{q}</h3>
+            <p className="faq-a">{a}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /* ─────────────────────── Shared UI pieces ─────────────────────── */
 
 function Explainer({ id, inline, label }) {
@@ -988,51 +1125,7 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
                 regardless.
               </p>
             )}
-            <div className="sub-title-row">
-              <h3 className="sub-title">Detectable uplift by duration</h3>
-              <div className="view-toggle">
-                <button type="button" className={`view-btn ${viewMode === 'chart' ? 'view-btn-on' : ''}`}
-                  onClick={() => setViewMode('chart')}>Chart</button>
-                <button type="button" className={`view-btn ${viewMode === 'table' ? 'view-btn-on' : ''}`}
-                  onClick={() => setViewMode('table')}>Table</button>
-              </div>
-            </div>
-            <p className="field-hint">
-              How small a relative uplift this traffic can reliably detect if you run for longer.
-            </p>
-            {viewMode === 'chart' ? (
-              <div className="chart-wrap">
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={result.chart} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                    <CartesianGrid stroke="#EFE8F3" strokeDasharray="2 4" />
-                    <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#6E5A7A" }}
-                      label={{ value: "Weeks", position: "insideBottom", offset: -2, fontSize: 12, fill: "#6E5A7A" }} />
-                    <YAxis tick={{ fontSize: 12, fill: "#6E5A7A" }} unit="%" width={48} />
-                    <ChartTip formatter={(v) => [`${v}%`, "Detectable relative uplift"]}
-                      labelFormatter={(w) => `${w} week${w === 1 ? "" : "s"}`} />
-                    <Line type="monotone" dataKey="mde" stroke="#5B2A86" strokeWidth={2.5}
-                      dot={{ r: 3.5, fill: "#E4014E", stroke: "#fff", strokeWidth: 1.5 }} isAnimationActive={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="detail-table-wrap">
-                <table className="mini-table vertical-on-mobile">
-                  <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
-                  <thead>
-                    <tr><th scope="col">Weeks</th>{result.chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <th scope="row">Uplift</th>
-                    {result.chart.map((r) => (
-                      <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
-                    ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <DetectableUpliftSection chart={result.chart} viewMode={viewMode} setViewMode={setViewMode} />
           </>
         )}
       </section>
@@ -1292,51 +1385,7 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
                 regardless.
               </p>
             )}
-            <div className="sub-title-row">
-              <h3 className="sub-title">Detectable uplift by duration</h3>
-              <div className="view-toggle">
-                <button type="button" className={`view-btn ${viewMode === 'chart' ? 'view-btn-on' : ''}`}
-                  onClick={() => setViewMode('chart')}>Chart</button>
-                <button type="button" className={`view-btn ${viewMode === 'table' ? 'view-btn-on' : ''}`}
-                  onClick={() => setViewMode('table')}>Table</button>
-              </div>
-            </div>
-            <p className="field-hint">
-              How small a relative uplift this traffic can reliably detect if you run for longer.
-            </p>
-            {viewMode === 'chart' ? (
-              <div className="chart-wrap">
-                <ResponsiveContainer width="100%" height={220}>
-                  <LineChart data={result.chart} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                    <CartesianGrid stroke="#EFE8F3" strokeDasharray="2 4" />
-                    <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#6E5A7A" }}
-                      label={{ value: "Weeks", position: "insideBottom", offset: -2, fontSize: 12, fill: "#6E5A7A" }} />
-                    <YAxis tick={{ fontSize: 12, fill: "#6E5A7A" }} unit="%" width={48} />
-                    <ChartTip formatter={(v) => [`${v}%`, "Detectable relative uplift"]}
-                      labelFormatter={(w) => `${w} week${w === 1 ? "" : "s"}`} />
-                    <Line type="monotone" dataKey="mde" stroke="#5B2A86" strokeWidth={2.5}
-                      dot={{ r: 3.5, fill: "#E4014E", stroke: "#fff", strokeWidth: 1.5 }} isAnimationActive={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="detail-table-wrap">
-                <table className="mini-table vertical-on-mobile">
-                  <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
-                  <thead>
-                    <tr><th scope="col">Weeks</th>{result.chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <th scope="row">Uplift</th>
-                    {result.chart.map((r) => (
-                      <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
-                    ))}
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <DetectableUpliftSection chart={result.chart} viewMode={viewMode} setViewMode={setViewMode} />
           </>
         )}
       </section>
@@ -1345,6 +1394,8 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
 }
 
 function DistributionChart({ comparisons }) {
+  const colors = useChartTheme();
+  const tip = chartTipProps(colors);
   // Each comparison: { name, p1, p2, seA, seB }. Draw normal sampling distributions.
   const normalPdf = (x, mu, s) => Math.exp(-0.5 * ((x - mu) / s) ** 2) / (s * Math.sqrt(2 * Math.PI));
   let lo = Infinity, hi = -Infinity;
@@ -1357,24 +1408,23 @@ function DistributionChart({ comparisons }) {
   for (let i = 0; i <= N; i++) {
     const x = lo + (hi - lo) * i / N;
     const row = { x: +(x * 100).toFixed(4) };
-    // control curve once (from first comparison's p1/seA)
     row.control = normalPdf(x, comparisons[0].p1, comparisons[0].seA);
     comparisons.forEach((c, j) => { row[`v${j}`] = normalPdf(x, c.p2, c.seB); });
     data.push(row);
   }
-  const palette = ["#DC004A", "#4A3787", "#6441C3", "#157347", "#B8920A", "#0C447C", "#A32D2D"];
+  const palette = ["#DC004A", "#818CF8", "#34D399", "#FBBF24", "#F87171", "#38BDF8", "#FB7185"];
   return (
     <div className="chart-wrap">
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-          <CartesianGrid stroke="#EFE8F3" strokeDasharray="2 4" />
-          <XAxis dataKey="x" tick={{ fontSize: 11, fill: "#6B6478" }} unit="%"
+          <CartesianGrid stroke={colors.grid} strokeDasharray="2 4" />
+          <XAxis dataKey="x" tick={{ fontSize: 11, fill: colors.tick }} unit="%"
             tickFormatter={(v) => v.toFixed(2)} minTickGap={28} />
           <YAxis hide />
           <ChartTip
             formatter={(val, key) => [Math.round(val), key === "control" ? "Variant A (Control)" : "Variant"]}
-            labelFormatter={(x) => `CVR ${(+x).toFixed(3)}%`} />
-          <Line type="monotone" dataKey="control" stroke="#9A93A8" strokeWidth={2} dot={false} isAnimationActive={false} name="Variant A (Control)" />
+            labelFormatter={(x) => `CVR ${(+x).toFixed(3)}%`} {...tip} />
+          <Line type="monotone" dataKey="control" stroke={colors.control} strokeWidth={2} dot={false} isAnimationActive={false} name="Variant A (Control)" />
           {comparisons.map((c, j) => (
             <Line key={j} type="monotone" dataKey={`v${j}`} stroke={palette[(j + 1) % palette.length]}
               strokeWidth={2} dot={false} isAnimationActive={false} name={c.name} />
@@ -1653,7 +1703,6 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
   const marginRel = Number(marginPct) / 100;
   const isNonInf = question === "noninf";
   const [calculated, setCalculated] = useState(false);
-  const [viewMode, setViewMode] = useState("chart"); // chart | table
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
     [rows, alloc, question, goal, marginPct, k, confidence, twoTailed, durationDays]);
@@ -2596,10 +2645,16 @@ export default function EclipseCalculator() {
       <header className="masthead">
         <div className="mast-inner">
           <EclipseWordmark />
-          <div className="tagline">A/B test calculator</div>
           <div style={{marginLeft: 'auto'}}>
             <ThemeToggle theme={theme} toggle={toggleTheme} />
           </div>
+        </div>
+        <div className="intro">
+          <h1 className="page-title">A/B Test Calculator</h1>
+          <p className="intro-text">
+            Plan sample sizes and test duration before you start, then analyse significance,
+            revenue impact, and multiple variant corrections when your test is done.
+          </p>
         </div>
       </header>
 
@@ -2698,6 +2753,8 @@ export default function EclipseCalculator() {
               durationDays={durationDays} setDurationDays={setDurationDays} />}
         </>
       )}
+
+      <FaqSection />
     </div>
   );
 }
@@ -2714,37 +2771,67 @@ const CSS = `
   --grey-disabled:#E0E0E0; --text-disabled:#9E9E9E;
   --purple:#4A3787; --purple-deep:#382A68; --purple-soft:#F0EEFA;
   --purple-bright:#6441C3; --avatar:#CBCAFF;
+  --purple-active:#4A3787;
   --navy:#1C1328; --amber:#F1C40F;
-  --grad:var(--purple);
+  --grad:var(--purple-active);
   --win:#157347; --win-bg:#E7F6EE; --lose:#B3261E; --lose-bg:#FCEDEB;
   --ns:#6B6478; --ns-bg:#F0EEF4; --warn-bg:#FEF7E0; --warn-edge:#B8920A;
   --shadow:0 1px 2px rgba(26,18,41,.05), 0 10px 30px -12px rgba(26,18,41,.13);
   --radius:15px;
+  --chart-grid:#E9E6F0;
+  --chart-tick:#6B6478;
+  --chart-line:#5B2A86;
+  --chart-dot:#DC004A;
+  --chart-dot-stroke:#FFFFFF;
+  --chart-control:#9A93A8;
+  --chart-tooltip-bg:#FFFFFF;
+  --chart-tooltip-border:#E9E6F0;
+  --chart-tooltip-text:#1C1328;
 }
 [data-theme='dark'] {
-  --paper:#09090B; --card:#121214; --ink:#FFFFFF; --muted:#A1A1AA;
-  --line:#27272A;
-  --pink:#FF1A6A; --pink-deep:#FF4D8D; --pink-soft:#3D1224;
-  --grey-disabled:#27272A; --text-disabled:#71717A;
-  --purple:#818CF8; --purple-deep:#E0E7FF; --purple-soft:#1E1B4B;
-  --purple-bright:#6366F1; --avatar:#312E81;
-  --navy:#FFFFFF; --amber:#FBBF24;
-  --win:#10B981; --win-bg:#064E3B; --lose:#EF4444; --lose-bg:#450A0A;
-  --ns:#A1A1AA; --ns-bg:#18181B; --warn-bg:#422006; --warn-edge:#FBBF24;
+  --paper:#09090B; --card:#18181B; --ink:#FAFAFA; --muted:#D4D4D8;
+  --line:#3F3F46;
+  --pink:#FF1A6A; --pink-deep:#FDA4AF; --pink-soft:#4C0519;
+  --grey-disabled:#27272A; --text-disabled:#A1A1AA;
+  --purple:#A5B4FC; --purple-deep:#E0E7FF; --purple-soft:#312E81;
+  --purple-bright:#818CF8; --avatar:#4338CA;
+  --purple-active:#4338CA;
+  --navy:#FAFAFA; --amber:#FBBF24;
+  --win:#34D399; --win-bg:#064E3B; --lose:#F87171; --lose-bg:#450A0A;
+  --ns:#D4D4D8; --ns-bg:#27272A; --warn-bg:#422006; --warn-edge:#FBBF24;
   --shadow:0 1px 3px rgba(0,0,0,.5), 0 20px 40px -12px rgba(0,0,0,.7);
+  --chart-grid:#3F3F46;
+  --chart-tick:#E4E4E7;
+  --chart-line:#C4B5FD;
+  --chart-dot:#FDA4AF;
+  --chart-dot-stroke:#18181B;
+  --chart-control:#D4D4D8;
+  --chart-tooltip-bg:#27272A;
+  --chart-tooltip-border:#52525B;
+  --chart-tooltip-text:#FAFAFA;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --paper:#0F0D15; --card:#16121E; --ink:#FFFFFF; --muted:#A9A2B5;
-    --line:#2D243D;
-    --pink:#FF1A6A; --pink-deep:#FF4D8D; --pink-soft:#3D1224;
-    --grey-disabled:#2D2638; --text-disabled:#6B6478;
-    --purple:#818CF8; --purple-deep:#E0E7FF; --purple-soft:#261F33;
-    --purple-bright:#6366F1; --avatar:#4A3787;
-    --navy:#FFFFFF; --amber:#F1C40F;
-    --win:#10B981; --win-bg:#122B1E; --lose:#EF4444; --lose-bg:#3D1414;
-    --ns:#A9A2B5; --ns-bg:#1C1826; --warn-bg:#2D2605; --warn-edge:#F1C40F;
+    --paper:#0F0D15; --card:#16121E; --ink:#FAFAFA; --muted:#D4D4D8;
+    --line:#3F3F46;
+    --pink:#FF1A6A; --pink-deep:#FDA4AF; --pink-soft:#4C0519;
+    --grey-disabled:#2D2638; --text-disabled:#A1A1AA;
+    --purple:#A5B4FC; --purple-deep:#E0E7FF; --purple-soft:#312E81;
+    --purple-bright:#818CF8; --avatar:#4338CA;
+    --purple-active:#4338CA;
+    --navy:#FAFAFA; --amber:#F1C40F;
+    --win:#34D399; --win-bg:#122B1E; --lose:#F87171; --lose-bg:#3D1414;
+    --ns:#D4D4D8; --ns-bg:#27272A; --warn-bg:#2D2605; --warn-edge:#F1C40F;
     --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.5);
+    --chart-grid:#3F3F46;
+    --chart-tick:#E4E4E7;
+    --chart-line:#C4B5FD;
+    --chart-dot:#FDA4AF;
+    --chart-dot-stroke:#16121E;
+    --chart-control:#D4D4D8;
+    --chart-tooltip-bg:#27272A;
+    --chart-tooltip-border:#52525B;
+    --chart-tooltip-text:#FAFAFA;
   }
 }
 .app{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;background:var(--paper);color:var(--ink);
@@ -2766,6 +2853,10 @@ const CSS = `
 .brand-word{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:30px;color:var(--pink);
   letter-spacing:-0.03em;line-height:1.2;}
 .tagline{color:var(--muted);font-size:15px;padding-top:6px;}
+.intro{max-width:1080px;margin:20px auto 0;text-align:left;}
+.page-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:28px;
+  line-height:1.2;letter-spacing:-0.03em;color:var(--navy);margin:0 0 10px;}
+.intro-text{color:var(--muted);font-size:16px;line-height:1.55;margin:0;max-width:65ch;}
 .theme-toggle{background:var(--card);border:1.5px solid var(--line);border-radius:10px;
   width:40px;height:40px;display:flex;align-items:center;justify-content:center;
   cursor:pointer;color:var(--purple);transition:all .15s;box-shadow:var(--shadow);}
@@ -2794,6 +2885,8 @@ const CSS = `
   .subtab{flex:1;padding:8px 12px;font-size:12.5px;}
 }
 .subtab-on{border-color:var(--pink);background:var(--pink-soft);color:var(--pink-deep);}
+[data-theme='dark'] .subtab-on,[data-theme='dark'] .subtab-on:focus-visible{
+  border-color:var(--pink-deep);background:var(--pink-soft);color:var(--pink-deep);}
 .subtab-on:focus-visible{outline-color:var(--pink);}
 
 /* settings */
@@ -2808,7 +2901,7 @@ const CSS = `
   border-radius:999px;display:flex;align-items:center;font-weight:600;position:relative;}
 .seg-opt input{position:absolute;opacity:0;pointer-events:none;}
 .seg-opt:has(:focus-visible){outline:3px solid var(--pink);outline-offset:1px;}
-.seg-on{background:var(--purple);color:#fff;}
+.seg-on{background:var(--purple-active);color:#fff;}
 
 /* layout */
 .two-col{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;align-items:start;}
@@ -2876,6 +2969,7 @@ const CSS = `
 .test-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;}
 .test-pill{font-size:12px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
   border:1px solid var(--line);border-radius:999px;padding:4px 12px;white-space:nowrap;}
+[data-theme='dark'] .test-pill{border-color:var(--purple-active);}
 .test-chip{font-size:12.5px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
   border:1px solid var(--line);border-radius:999px;padding:5px 14px;white-space:nowrap;}
 .sub-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:16px;line-height:1.5;
@@ -2893,7 +2987,7 @@ const CSS = `
   padding:10px 13px;font-size:15.5px;font-family:'Inter',sans-serif;color:var(--ink);
   background:var(--paper);font-feature-settings:'tnum' 1;}
 .input:focus-visible{border-color:var(--purple);}
-.input::placeholder{color:#A9A2B5;font-style:normal;}
+.input::placeholder{color:var(--muted);font-style:normal;}
 .input::-webkit-outer-spin-button,.input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 .input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .input-k{max-width:76px;text-align:center;}
@@ -2976,12 +3070,28 @@ const CSS = `
 .sub-title-row .sub-title{margin:0;}
 .view-toggle{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:2px;}
 .view-btn{background:none;border:0;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:6px;}
-.view-btn-on{background:var(--card);color:var(--purple);box-shadow:var(--shadow);}
+.view-btn-on{background:var(--card);color:var(--purple-deep);box-shadow:var(--shadow);}
+[data-theme='dark'] .view-btn-on{color:var(--ink);}
 
 .v2-details-toggle-wrap{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;}
 .note{background:var(--warn-bg);border-left:3px solid var(--warn-edge);padding:11px 13px;
-  border-radius:0 10px 10px 0;font-size:14px;margin:12px 0;}
+  border-radius:0 10px 10px 0;font-size:14px;margin:12px 0;color:var(--ink);}
 .chart-wrap{margin:6px 0 4px;min-width:0;width:100%;overflow:hidden;}
+.chart-caption{font-size:13px;color:var(--muted);margin:8px 0 0;line-height:1.45;}
+.faq-section{max-width:1080px;margin:40px auto 0;background:var(--card);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px;text-align:left;}
+.faq-heading{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:22px;
+  margin:0 0 20px;color:var(--navy);letter-spacing:-0.02em;}
+.faq-list{display:flex;flex-direction:column;gap:20px;}
+.faq-item{border-top:1px solid var(--line);padding-top:18px;}
+.faq-item:first-child{border-top:0;padding-top:0;}
+.faq-q{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:16px;font-weight:600;
+  margin:0 0 8px;color:var(--ink);line-height:1.35;}
+.faq-a{margin:0;color:var(--muted);font-size:15px;line-height:1.55;max-width:70ch;}
+@media (max-width:600px){
+  .faq-section{padding:20px 16px;border-radius:0;border-inline:0;}
+  .page-title{font-size:24px;}
+}
 .mini-table{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:10px;}
 .mini-table th,.mini-table td{border:1px solid var(--line);padding:5px 7px;text-align:center;}
 .mini-table th{background:var(--paper);font-weight:600;}
