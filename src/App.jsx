@@ -563,24 +563,64 @@ const EXPLAINERS = {
 
 const FAQ_ITEMS = [
   {
+    q: "What is an A/B test?",
+    a: "An A/B test splits traffic between a control (what you have now) and one or more variants (a change you want to try). By measuring conversion rate, revenue per visitor or other metrics on each group, you can see whether a change made a real difference or the gap was just random noise.",
+  },
+  {
     q: "How do I know if my A/B test result is statistically significant?",
-    a: "A result is statistically significant when the difference between your variants is unlikely to be down to random fluctuation. This calculator compares your conversion rates and tells you, in plain English, whether the difference clears your chosen confidence level (90%, 95% or 99%).",
+    a: "A result is statistically significant when the difference between variants is unlikely to have happened by chance alone. Enter your visitor and conversion counts — or upload revenue data — and the calculator runs the appropriate statistical test. It then tells you in plain English whether the result clears your chosen confidence level (90%, 95% or 99%) and shows the p-value and confidence interval behind that call.",
+  },
+  {
+    q: "What is a p-value in A/B testing?",
+    a: "The p-value answers: if there were truly no difference between control and variant, how often would you see a gap at least this large just from randomness? A smaller p-value means the result is harder to dismiss as luck. If the p-value is below your significance threshold (for example 0.05 at 95% confidence), the result is called statistically significant.",
   },
   {
     q: "How many visitors do I need for an A/B test?",
-    a: "It depends on your baseline conversion rate, the smallest improvement you want to detect, and how many variants you're testing. Enter those in the planning calculator and it returns the visitors needed per variant and an estimated test duration in weeks.",
+    a: "Sample size depends on your baseline conversion rate, the smallest uplift you care about (minimum detectable effect), your chosen confidence level, statistical power, and how many variants you are testing. Use the planning tab: enter your baseline rate, target uplift and traffic, and the calculator returns visitors needed per variant plus an estimated duration in days and weeks.",
   },
   {
-    q: "Can this calculator handle more than two variants?",
-    a: "Yes. It supports A/B/C/n tests and automatically applies the correct multiple-comparison correction, which many calculators either can't do or handle incorrectly.",
+    q: "What is statistical power in A/B testing?",
+    a: "Statistical power is the probability your test will detect a real improvement if one exists. At 80% power — the usual default — there is roughly a one-in-five chance of missing a genuine winner. Higher power (90%) needs more traffic but reduces that risk. Set power alongside confidence when planning a test so you are not under-powered before you start.",
   },
   {
-    q: "Can I measure the effect on revenue, not just conversion rate?",
-    a: "Yes. Upload your order data and the calculator measures revenue per visitor and average order value, using the correct statistical test for revenue figures.",
+    q: "What is the minimum detectable effect (MDE)?",
+    a: "The minimum detectable effect is the smallest relative uplift you want the test to be able to spot — for example, a 10% lift on a 2.00% baseline means detecting a move from 2.00% to 2.20%. Smaller MDEs need much larger sample sizes. Pick an MDE based on the smallest change that would actually change your decision, not the smallest change you can imagine.",
+  },
+  {
+    q: "Should I use a one-tailed or two-tailed test?",
+    a: "A two-tailed test asks whether the variant is different — better or worse. A one-tailed test asks only whether it is better. Use one-tailed only when a decrease would be treated exactly the same as no change. If a drop would worry you, use two-tailed. Two-tailed is the default here and is the safer choice for most business decisions.",
+  },
+  {
+    q: "Can I test more than two variants (A/B/C/n)?",
+    a: "Yes. You can compare three or more variants against a control at once. Each variant gets its own comparison, and Holm–Bonferroni correction is applied automatically so your overall false-positive rate stays at the confidence level you set. You can also set unequal traffic splits between variants.",
+  },
+  {
+    q: "Why do multiple variants need a correction?",
+    a: "Every extra variant compared against control is another chance for a fluke result. With three variants that is three separate comparisons, so the chance of at least one false alarm rises above your chosen confidence level. Holm–Bonferroni correction adjusts the p-value for each comparison so the family-wise error rate stays controlled. It is applied automatically whenever you analyse more than one variant.",
+  },
+  {
+    q: "Can I measure revenue, not just conversion rate?",
+    a: "Yes. Paste or upload order-level revenue data and the calculator measures revenue per visitor (RPV) and average order value (AOV). Revenue is analysed with Welch's t-test, which handles unequal variance between groups — the standard approach for skewed revenue data. You can also cap outliers at the 90th, 95th or 99th percentile before analysis.",
+  },
+  {
+    q: "What is the difference between conversion rate, RPV and AOV?",
+    a: "Conversion rate (CVR) is conversions divided by visitors. Revenue per visitor (RPV) is total revenue divided by all visitors, including non-buyers — usually the primary revenue metric because it reflects the full funnel. Average order value (AOV) is total revenue divided by orders only, so it ignores visitors who did not purchase. A variant can raise RPV while lowering AOV if it brings in more small orders.",
+  },
+  {
+    q: "What are confidence intervals in A/B test results?",
+    a: "A confidence interval shows the range of plausible values for the true difference between variants. For conversion rate, you will see intervals for each variant's rate and for the uplift between them. If the interval for uplift excludes zero, the result is significant at that confidence level. Intervals make the size of the effect visible, not just whether it cleared the bar.",
   },
   {
     q: "How long should I run an A/B test?",
-    a: "Run it until it reaches the sample size your plan calls for, and ideally for at least one to two full weeks so it captures normal variation across the week. The planning calculator estimates the duration for you.",
+    a: "Run until you reach the sample size your plan requires — stopping early inflates false positives. Ideally include at least one to two full business weeks so weekday and weekend patterns are both represented. The planning calculator estimates duration from your traffic volume; the analysis tab can also check whether you ran long enough relative to your original plan.",
+  },
+  {
+    q: "What is a non-inferiority test?",
+    a: "A standard test asks whether a variant is better than control. A non-inferiority test asks whether you can be confident the variant is not meaningfully worse — useful when you want to ship a change for other reasons (simpler design, lower cost) and only need to confirm it does not hurt conversion beyond a margin you set. Enable it in the conversion-rate analysis tab and define your acceptable margin.",
+  },
+  {
+    q: "What is a sample ratio mismatch (SRM)?",
+    a: "A sample ratio mismatch happens when actual traffic splits do not match the planned allocation — for example, you intended 50/50 but received 48/52 on large volumes. It often points to a tracking or redirect bug and can mean the groups are not comparable. The calculator runs a chi-square check against your planned split and flags a mismatch when the gap is too large to be random.",
   },
 ];
 
