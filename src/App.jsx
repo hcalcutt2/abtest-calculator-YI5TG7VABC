@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -742,14 +742,48 @@ function FaqSection() {
 
 function Explainer({ id, inline, label }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState(null);
+  const toggleRef = useRef(null);
+  const bodyRef = useRef(null);
   const e = EXPLAINERS[id];
+
+  useLayoutEffect(() => {
+    if (!open || !e || !toggleRef.current || !bodyRef.current) {
+      setPos(null);
+      return;
+    }
+    const toggle = toggleRef.current.getBoundingClientRect();
+    const body = bodyRef.current;
+    const gap = 8;
+    const pad = 12;
+    const bw = body.offsetWidth;
+    const bh = body.offsetHeight;
+
+    let left = toggle.left;
+    let top = toggle.bottom + gap;
+
+    if (left + bw > window.innerWidth - pad) {
+      left = toggle.right - bw;
+    }
+    left = Math.max(pad, Math.min(left, window.innerWidth - bw - pad));
+
+    if (top + bh > window.innerHeight - pad) {
+      top = toggle.top - bh - gap;
+    }
+    top = Math.max(pad, top);
+
+    setPos({ top, left });
+  }, [open, id, e]);
+
   if (!e) return null;
+
   return (
     <div className={`explainer ${inline ? "explainer-inline" : ""}`}
       onMouseEnter={() => setOpen(true)}
       onMouseLeave={() => setOpen(false)}
     >
       <button
+        ref={toggleRef}
         type="button"
         className="explainer-toggle"
         aria-expanded={open}
@@ -760,7 +794,12 @@ function Explainer({ id, inline, label }) {
         <span aria-hidden="true" className="exp-ring">?</span>
       </button>
       {open && (
-        <div id={`exp-${id}-${inline ? "i" : "b"}`} className="explainer-body">
+        <div
+          ref={bodyRef}
+          id={`exp-${id}-${inline ? "i" : "b"}`}
+          className="explainer-body"
+          style={pos ? { top: pos.top, left: pos.left, visibility: "visible" } : { visibility: "hidden" }}
+        >
           <div className="exp-title">{e.label}</div>
           {e.body && <span>{e.body}</span>}
           {e.lead && <p className="exp-lead">{e.lead}</p>}
@@ -3073,10 +3112,10 @@ const CSS = `
 .exp-ring{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
   background:var(--purple-soft);border:1px solid var(--line);border-radius:50%;font-size:10px;
   flex:none;color:var(--purple);font-weight:700;line-height:1;margin-top:-1px;}
-.explainer-body{position:absolute;top:100%;right:0;z-index:100;margin-top:8px;background:var(--card);
+.explainer-body{position:fixed;z-index:1000;background:var(--card);
   border:1px solid var(--line);padding:14px 16px;font-size:13.5px;border-radius:12px;
   box-shadow:var(--shadow);width:260px;color:var(--ink);text-align:left;
-  max-width:calc(100vw - 40px);}
+  max-width:calc(100vw - 24px);}
 @media (max-width:480px){.explainer-body{width:220px;}}
 .exp-title{font-weight:700;margin-bottom:6px;color:var(--navy);font-size:14px;}
 .exp-lead{margin:0 0 8px;line-height:1.4;}
