@@ -549,7 +549,7 @@ const EXPLAINERS = {
   },
   winsorize: {
     label: "What is capping outliers?",
-    body: "Revenue data often contains 'whales' — a few customers who spend 10x or 100x more than the average. These outliers can skew your results and make a variant look like a winner just because one person made a huge purchase. Capping (Winsorizing) replaces these extreme values with a lower threshold (the 99th percentile), making your statistical test more robust and reliable.",
+    body: "Revenue data often contains 'whales' — a few customers who spend 10x or 100x more than the average. These outliers can skew your results and make a variant look like a winner just because one person made a huge purchase. Capping (Winsorizing) replaces these extreme values with a lower threshold (e.g. the 99th percentile), making your statistical test more robust and reliable.",
   },
   skewness: {
     label: "What is data skewness?",
@@ -563,7 +563,7 @@ const EXPLAINERS = {
 
 /* ─────────────────────── Shared UI pieces ─────────────────────── */
 
-function Explainer({ id, inline }) {
+function Explainer({ id, inline, label }) {
   const [open, setOpen] = useState(false);
   const e = EXPLAINERS[id];
   if (!e) return null;
@@ -579,6 +579,7 @@ function Explainer({ id, inline }) {
         aria-controls={`exp-${id}-${inline ? "i" : "b"}`}
         onClick={() => setOpen(!open)}
       >
+        {label && <span className="explainer-label-text">{label}</span>}
         <span aria-hidden="true" className="exp-ring">?</span>
       </button>
       {open && (
@@ -602,8 +603,11 @@ function Field({ label, hint, error, children, htmlFor, explainerId }) {
   return (
     <div className="field">
       <div className="field-label-row">
-        <label className="field-label" htmlFor={htmlFor}>{label}</label>
-        {explainerId && <Explainer id={explainerId} inline />}
+        {explainerId ? (
+          <Explainer id={explainerId} inline label={label} />
+        ) : (
+          <label className="field-label" htmlFor={htmlFor}>{label}</label>
+        )}
       </div>
       {hint && <div className="field-hint">{hint}</div>}
       {children}
@@ -740,8 +744,7 @@ function SrmBanner({ srm }) {
   return (
     <div className="srm-bad" role="alert">
       <div style={{display:'flex', alignItems:'center', gap:'8px', marginBottom:'8px'}}>
-        <strong>Your traffic didn't split the way it was planned.</strong>
-        <Explainer id="srm" inline />
+        <Explainer id="srm" inline label={<strong>Your traffic didn't split the way it was planned.</strong>} />
       </div>
       <p>
         This is known as a sample ratio mismatch. It usually points to a setup issue rather than
@@ -779,15 +782,15 @@ function VariantStepper({ k, setVariantCount, idBase }) {
 
 /* ─────────────────────── PRE_TEST mode (§2) ───────────────────── */
 
-function PreTest({ confidence, twoTailed }) {
+function PreTest({ confidence, twoTailed, power, setPower }) {
   const [baseline, setBaseline] = useState("");
   const [mde, setMde] = useState("");
   const [traffic, setTraffic] = useState("");
   const [period, setPeriod] = useState("week"); // day | week | month
-  const [power, setPower] = useState(0.8);
   const [k, setK] = useState(2);
   const [alloc, setAlloc] = useState(equalSplit(2));
   const [calculated, setCalculated] = useState(false);
+  const [viewMode, setViewMode] = useState("chart"); // chart | table
 
   const labels = useMemo(
     () => makeLabels(k),
@@ -827,14 +830,15 @@ function PreTest({ confidence, twoTailed }) {
   if (calculated && inputsValid) {
     const nPerArm = requiredNPerArm(p1, mdeRel, alphaAdj, power, twoTailed);
     const minAllocFrac = Math.min(...alloc.map((a) => Number(a) / 100));
-    const weeks = Math.max(1, Math.ceil(nPerArm / (wk * minAllocFrac)));
+    const days = Math.ceil(nPerArm / ((wk / 7) * minAllocFrac));
+    const weeks = Math.ceil(days / 7);
     const chart = [];
     for (let w = 1; w <= 12; w++) {
       const nAvail = Math.floor(wk * minAllocFrac * w);
       const d = detectableMde(p1, nAvail, alphaAdj, power, twoTailed);
       chart.push({ week: w, mde: d != null ? +(d * 100).toFixed(2) : null });
     }
-    result = { nPerArm, total: nPerArm * k, weeks, chart };
+    result = { nPerArm, total: nPerArm * k, weeks, days, chart };
   }
 
   return (
@@ -858,8 +862,7 @@ function PreTest({ confidence, twoTailed }) {
             value={mde} onChange={(e) => setMde(e.target.value)} />
           {!errors.mde && !errors.baseline && mdeRel > 0 && (
             <div className="derived-line">
-              = <strong>{fmtPct(mdeAbs)}</strong> absolute ({fmtPct(p1)} → {fmtPct(p1 * (1 + mdeRel))})
-              <Explainer id="mdeabs" inline />
+              <Explainer id="mdeabs" inline label={<span>= <strong>{fmtPct(mdeAbs)}</strong> absolute ({fmtPct(p1)} → {fmtPct(p1 * (1 + mdeRel))})</span>} />
             </div>
           )}
         </Field>
@@ -881,33 +884,12 @@ function PreTest({ confidence, twoTailed }) {
         {k >= 3 && (
           <p className="note">
             Testing {comparisons} variants against control — the sample sizes below already include
-            the correction this needs <Explainer id="holm" inline />, so the duration estimate is honest for a multi-variant test.
+            <Explainer id="holm" inline label="the correction this needs" />, so the duration estimate is honest for a multi-variant test.
           </p>
         )}
 
         <Field label="Traffic split (defaults to equal)" htmlFor={undefined}>
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="pre" />
-        </Field>
-
-        <Field label="Statistical power" explainerId="power">
-          <div className="seg-row" role="radiogroup" aria-label="Statistical power">
-            {[
-              { value: 0.7, label: "70%" },
-              { value: 0.8, label: "80%" },
-              { value: 0.9, label: "90%" },
-            ].map((o) => (
-              <label key={o.value} className={`seg-opt ${power === o.value ? "seg-on" : ""}`}>
-                <input
-                  type="radio"
-                  name="power"
-                  value={o.value}
-                  checked={power === o.value}
-                  onChange={() => setPower(o.value)}
-                />
-                {o.label}
-              </label>
-            ))}
-          </div>
         </Field>
 
         <button type="button" className="btn-calc"
@@ -954,6 +936,7 @@ function PreTest({ confidence, twoTailed }) {
                 ["Results", ""],
                 ["Visitors required per variant", result.nPerArm],
                 ["Total visitors required", result.total],
+                ["Estimated duration (days)", result.days],
                 ["Estimated duration (weeks)", result.weeks],
                 [],
                 ["Detectable relative uplift by duration", ""],
@@ -973,7 +956,7 @@ function PreTest({ confidence, twoTailed }) {
               { heading: "Results", lines: [
                 `Visitors required per variant: ${fmtInt(result.nPerArm)}`,
                 `Total visitors required: ${fmtInt(result.total)}`,
-                `Estimated duration: ${result.weeks} ${result.weeks === 1 ? "week" : "weeks"}`,
+                `Estimated duration: ${result.days} ${result.days === 1 ? "day" : "days"} (${result.weeks} ${result.weeks === 1 ? "week" : "weeks"})`,
               ]},
               { heading: "Detectable relative uplift by duration", lines:
                 result.chart.map(c => `Week ${c.week}: ${c.mde != null ? c.mde + "%" : "—"}`) },
@@ -994,7 +977,8 @@ function PreTest({ confidence, twoTailed }) {
               </div>
               <div className="stat stat-hero">
                 <div className="stat-label">Estimated duration</div>
-                <div className="stat-num">{result.weeks} {result.weeks === 1 ? "week" : "weeks"}</div>
+                <div className="stat-num">{result.days} {result.days === 1 ? "day" : "days"}</div>
+                <div className="stat-sub-label">({result.weeks} {result.weeks === 1 ? "week" : "weeks"})</div>
               </div>
             </div>
             {result.weeks < 2 && (
@@ -1004,40 +988,51 @@ function PreTest({ confidence, twoTailed }) {
                 regardless.
               </p>
             )}
-            <h3 className="sub-title">Detectable uplift by duration</h3>
+            <div className="sub-title-row">
+              <h3 className="sub-title">Detectable uplift by duration</h3>
+              <div className="view-toggle">
+                <button type="button" className={`view-btn ${viewMode === 'chart' ? 'view-btn-on' : ''}`}
+                  onClick={() => setViewMode('chart')}>Chart</button>
+                <button type="button" className={`view-btn ${viewMode === 'table' ? 'view-btn-on' : ''}`}
+                  onClick={() => setViewMode('table')}>Table</button>
+              </div>
+            </div>
             <p className="field-hint">
               How small a relative uplift this traffic can reliably detect if you run for longer.
             </p>
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={result.chart} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                  <CartesianGrid stroke="#EFE8F3" strokeDasharray="2 4" />
-                  <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#6E5A7A" }}
-                    label={{ value: "Weeks", position: "insideBottom", offset: -2, fontSize: 12, fill: "#6E5A7A" }} />
-                  <YAxis tick={{ fontSize: 12, fill: "#6E5A7A" }} unit="%" width={48} />
-                  <ChartTip formatter={(v) => [`${v}%`, "Detectable relative uplift"]}
-                    labelFormatter={(w) => `${w} week${w === 1 ? "" : "s"}`} />
-                  <Line type="monotone" dataKey="mde" stroke="#5B2A86" strokeWidth={2.5}
-                    dot={{ r: 3.5, fill: "#E4014E", stroke: "#fff", strokeWidth: 1.5 }} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="detail-table-wrap">
-              <table className="mini-table vertical-on-mobile">
-                <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
-                <thead>
-                  <tr><th scope="col">Weeks</th>{result.chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <th scope="row">Uplift</th>
-                  {result.chart.map((r) => (
-                    <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
-                  ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            {viewMode === 'chart' ? (
+              <div className="chart-wrap">
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={result.chart} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                    <CartesianGrid stroke="#EFE8F3" strokeDasharray="2 4" />
+                    <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#6E5A7A" }}
+                      label={{ value: "Weeks", position: "insideBottom", offset: -2, fontSize: 12, fill: "#6E5A7A" }} />
+                    <YAxis tick={{ fontSize: 12, fill: "#6E5A7A" }} unit="%" width={48} />
+                    <ChartTip formatter={(v) => [`${v}%`, "Detectable relative uplift"]}
+                      labelFormatter={(w) => `${w} week${w === 1 ? "" : "s"}`} />
+                    <Line type="monotone" dataKey="mde" stroke="#5B2A86" strokeWidth={2.5}
+                      dot={{ r: 3.5, fill: "#E4014E", stroke: "#fff", strokeWidth: 1.5 }} isAnimationActive={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="detail-table-wrap">
+                <table className="mini-table vertical-on-mobile">
+                  <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
+                  <thead>
+                    <tr><th scope="col">Weeks</th>{result.chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Uplift</th>
+                    {result.chart.map((r) => (
+                      <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
+                    ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -1046,15 +1041,15 @@ function PreTest({ confidence, twoTailed }) {
 }
 
 /* Expandable "show the working" detail — z-test internals + distribution chart */
-function PreTestRevenue({ confidence, twoTailed }) {
+function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
   const [cv, setCv] = useState("1.5");
   const [mde, setMde] = useState("");
   const [traffic, setTraffic] = useState("");
   const [period, setPeriod] = useState("week");
-  const [power, setPower] = useState(0.8);
   const [k, setK] = useState(2);
   const [alloc, setAlloc] = useState(equalSplit(2));
   const [calculated, setCalculated] = useState(false);
+  const [viewMode, setViewMode] = useState("chart"); // chart | table
   const [sdCalcOpen, setSdCalcOpen] = useState(false);
   const [sdInput, setSdInput] = useState("");
   const [sdResult, setSdResult] = useState(null);
@@ -1106,14 +1101,15 @@ function PreTestRevenue({ confidence, twoTailed }) {
   if (calculated && inputsValid) {
     const nPerArm = requiredNPerArmContinuous(cvNum, mdeRel, alphaAdj, power, twoTailed);
     const minAllocFrac = Math.min(...alloc.map((a) => Number(a) / 100));
-    const weeks = Math.max(1, Math.ceil(nPerArm / (wk * minAllocFrac)));
+    const days = Math.ceil(nPerArm / ((wk / 7) * minAllocFrac));
+    const weeks = Math.ceil(days / 7);
     const chart = [];
     for (let w = 1; w <= 12; w++) {
       const nAvail = Math.floor(wk * minAllocFrac * w);
       const d = detectableMdeContinuous(cvNum, nAvail, alphaAdj, power, twoTailed);
       chart.push({ week: w, mde: d != null ? +(d * 100).toFixed(2) : null });
     }
-    result = { nPerArm, total: nPerArm * k, weeks, chart };
+    result = { nPerArm, total: nPerArm * k, weeks, days, chart };
   }
 
   return (
@@ -1201,27 +1197,6 @@ function PreTestRevenue({ confidence, twoTailed }) {
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="pre-rev" />
         </Field>
 
-        <Field label="Statistical power" explainerId="power">
-          <div className="seg-row" role="radiogroup" aria-label="Statistical power">
-            {[
-              { value: 0.7, label: "70%" },
-              { value: 0.8, label: "80%" },
-              { value: 0.9, label: "90%" },
-            ].map((o) => (
-              <label key={o.value} className={`seg-opt ${power === o.value ? "seg-on" : ""}`}>
-                <input
-                  type="radio"
-                  name="power-rev"
-                  value={o.value}
-                  checked={power === o.value}
-                  onChange={() => setPower(o.value)}
-                />
-                {o.label}
-              </label>
-            ))}
-          </div>
-        </Field>
-
         <button type="button" className="btn-calc"
           onClick={() => {
             setCalculated(true);
@@ -1265,7 +1240,8 @@ function PreTestRevenue({ confidence, twoTailed }) {
                 ["Results", ""],
                 ["Visitors required per variant", result.nPerArm],
                 ["Total visitors required", result.total],
-                ["Estimated duration", `${result.weeks} weeks`],
+                ["Estimated duration (days)", result.days],
+                ["Estimated duration (weeks)", result.weeks],
                 [],
                 ["Detectable uplift %", ...result.chart.map(c => c.mde ?? "")],
               ];
@@ -1283,7 +1259,7 @@ function PreTestRevenue({ confidence, twoTailed }) {
                 { heading: "Results", lines: [
                   `Visitors required per variant: ${fmtInt(result.nPerArm)}`,
                   `Total visitors required: ${fmtInt(result.total)}`,
-                  `Estimated duration: ${result.weeks} ${result.weeks === 1 ? "week" : "weeks"}`,
+                  `Estimated duration: ${result.days} ${result.days === 1 ? "day" : "days"} (${result.weeks} ${result.weeks === 1 ? "week" : "weeks"})`,
                 ]},
                 { heading: "Detectable relative uplift by duration", lines:
                   result.chart.map(c => `Week ${c.week}: ${c.mde != null ? c.mde + "%" : "—"}`) },
@@ -1305,7 +1281,8 @@ function PreTestRevenue({ confidence, twoTailed }) {
               </div>
               <div className="stat stat-hero">
                 <div className="stat-label">Estimated duration</div>
-                <div className="stat-num">{result.weeks} {result.weeks === 1 ? "week" : "weeks"}</div>
+                <div className="stat-num">{result.days} {result.days === 1 ? "day" : "days"}</div>
+                <div className="stat-sub-label">({result.weeks} {result.weeks === 1 ? "week" : "weeks"})</div>
               </div>
             </div>
             {result.weeks < 2 && (
@@ -1315,40 +1292,51 @@ function PreTestRevenue({ confidence, twoTailed }) {
                 regardless.
               </p>
             )}
-            <h3 className="sub-title">Detectable uplift by duration</h3>
+            <div className="sub-title-row">
+              <h3 className="sub-title">Detectable uplift by duration</h3>
+              <div className="view-toggle">
+                <button type="button" className={`view-btn ${viewMode === 'chart' ? 'view-btn-on' : ''}`}
+                  onClick={() => setViewMode('chart')}>Chart</button>
+                <button type="button" className={`view-btn ${viewMode === 'table' ? 'view-btn-on' : ''}`}
+                  onClick={() => setViewMode('table')}>Table</button>
+              </div>
+            </div>
             <p className="field-hint">
               How small a relative uplift this traffic can reliably detect if you run for longer.
             </p>
-            <div className="chart-wrap">
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={result.chart} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-                  <CartesianGrid stroke="#EFE8F3" strokeDasharray="2 4" />
-                  <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#6E5A7A" }}
-                    label={{ value: "Weeks", position: "insideBottom", offset: -2, fontSize: 12, fill: "#6E5A7A" }} />
-                  <YAxis tick={{ fontSize: 12, fill: "#6E5A7A" }} unit="%" width={48} />
-                  <ChartTip formatter={(v) => [`${v}%`, "Detectable relative uplift"]}
-                    labelFormatter={(w) => `${w} week${w === 1 ? "" : "s"}`} />
-                  <Line type="monotone" dataKey="mde" stroke="#5B2A86" strokeWidth={2.5}
-                    dot={{ r: 3.5, fill: "#E4014E", stroke: "#fff", strokeWidth: 1.5 }} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <div className="detail-table-wrap">
-              <table className="mini-table vertical-on-mobile">
-                <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
-                <thead>
-                  <tr><th scope="col">Weeks</th>{result.chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <th scope="row">Uplift</th>
-                  {result.chart.map((r) => (
-                    <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
-                  ))}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
+            {viewMode === 'chart' ? (
+              <div className="chart-wrap">
+                <ResponsiveContainer width="100%" height={220}>
+                  <LineChart data={result.chart} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
+                    <CartesianGrid stroke="#EFE8F3" strokeDasharray="2 4" />
+                    <XAxis dataKey="week" tick={{ fontSize: 12, fill: "#6E5A7A" }}
+                      label={{ value: "Weeks", position: "insideBottom", offset: -2, fontSize: 12, fill: "#6E5A7A" }} />
+                    <YAxis tick={{ fontSize: 12, fill: "#6E5A7A" }} unit="%" width={48} />
+                    <ChartTip formatter={(v) => [`${v}%`, "Detectable relative uplift"]}
+                      labelFormatter={(w) => `${w} week${w === 1 ? "" : "s"}`} />
+                    <Line type="monotone" dataKey="mde" stroke="#5B2A86" strokeWidth={2.5}
+                      dot={{ r: 3.5, fill: "#E4014E", stroke: "#fff", strokeWidth: 1.5 }} isAnimationActive={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div className="detail-table-wrap">
+                <table className="mini-table vertical-on-mobile">
+                  <caption className="sr-only">Detectable relative uplift by number of weeks</caption>
+                  <thead>
+                    <tr><th scope="col">Weeks</th>{result.chart.map((r) => <th scope="col" key={r.week}>{r.week}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <th scope="row">Uplift</th>
+                    {result.chart.map((r) => (
+                      <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
+                    ))}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
           </>
         )}
       </section>
@@ -1454,6 +1442,7 @@ function DetailedStats({ comparisons, confidence, twoTailed }) {
 function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   relUplift, pRaw, pAdj, corrected, ciBase, ciVar, baseCiLabel, varCiLabel,
   confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore, goal = "increase", skewVerdict }) {
+  const [showDetails, setShowDetails] = useState(false);
   const alpha = 1 - confidence;
   const decisionP = corrected ? pAdj : pRaw;
   const sig = Number.isFinite(decisionP) && decisionP < alpha;
@@ -1525,30 +1514,38 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
         </div>
       </div>
 
-      <div className="v2-details">
-        <div className="v2-d-row">
-          <div className="v2-d-col">
-            <span className="v2-d-label">p-value <Explainer id={corrected ? "pvalue_adj" : "pvalue"} inline /></span>
-            <span className="v2-d-val">{fmtP(pRaw)} {corrected && <small>(adj)</small>}</span>
-          </div>
-          <div className="v2-d-col">
-            <span className="v2-d-label">{zScore?.label || "Z-score"}</span>
-            <span className="v2-d-val">{zScore?.value != null ? zScore.value.toFixed(4) : "—"}</span>
-          </div>
-          {ciBase && (
-            <div className="v2-d-col">
-              <span className="v2-d-label">{baseCiLabel || "Control"} ({confPct}% CI) <Explainer id="confpct" inline /></span>
-              <span className="v2-d-val">{fmtCi(ciBase[0], ciBase[1])}</span>
-            </div>
-          )}
-          {ciVar && (
-            <div className="v2-d-col">
-              <span className="v2-d-label">{varCiLabel || "Variant"} ({confPct}% CI)</span>
-              <span className="v2-d-val">{fmtCi(ciVar[0], ciVar[1])}</span>
-            </div>
-          )}
-        </div>
+      <div className="v2-details-toggle-wrap">
+        <button type="button" className="btn-text" onClick={() => setShowDetails(!showDetails)}>
+          {showDetails ? "− Hide statistical details" : "+ Show statistical details"}
+        </button>
       </div>
+
+      {showDetails && (
+        <div className="v2-details">
+          <div className="v2-d-row">
+            <div className="v2-d-col">
+              <span className="v2-d-label"><Explainer id={corrected ? "pvalue_adj" : "pvalue"} inline label="p-value" /></span>
+              <span className="v2-d-val">{fmtP(pRaw)} {corrected && <small>(adj)</small>}</span>
+            </div>
+            <div className="v2-d-col">
+              <span className="v2-d-label">{zScore?.label || "Z-score"}</span>
+              <span className="v2-d-val">{zScore?.value != null ? zScore.value.toFixed(4) : "—"}</span>
+            </div>
+            {ciBase && (
+              <div className="v2-d-col">
+                <span className="v2-d-label"><Explainer id="confpct" inline label={`${baseCiLabel || "Control"} (${confPct}% CI)`} /></span>
+                <span className="v2-d-val">{fmtCi(ciBase[0], ciBase[1])}</span>
+              </div>
+            )}
+            {ciVar && (
+              <div className="v2-d-col">
+                <span className="v2-d-label">{varCiLabel || "Variant"} ({confPct}% CI)</span>
+                <span className="v2-d-val">{fmtCi(ciVar[0], ciVar[1])}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {addDays && !sig && (
         <div className="v2-footer">
@@ -1568,6 +1565,7 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
 }
 
 function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw, confidence }) {
+  const [showDetails, setShowDetails] = useState(false);
   const confPct = Math.round(confidence * 100);
   const confirmed = pRaw < 1 - confidence;
   // verdict: confirmed non-inferior / worse than margin / inconclusive
@@ -1621,18 +1619,26 @@ function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw
         </div>
       </div>
 
-      <div className="v2-details">
-        <div className="v2-d-row">
-          <div className="v2-d-col">
-            <span className="v2-d-label">Acceptable Margin <Explainer id="noninf" inline /></span>
-            <span className="v2-d-val">−{fmtPct(marginRel)}</span>
-          </div>
-          <div className="v2-d-col">
-            <span className="v2-d-label">p-value</span>
-            <span className="v2-d-val">{fmtP(pRaw)}</span>
+      <div className="v2-details-toggle-wrap">
+        <button type="button" className="btn-text" onClick={() => setShowDetails(!showDetails)}>
+          {showDetails ? "− Hide statistical details" : "+ Show statistical details"}
+        </button>
+      </div>
+
+      {showDetails && (
+        <div className="v2-details">
+          <div className="v2-d-row">
+            <div className="v2-d-col">
+              <span className="v2-d-label"><Explainer id="noninf" inline label="Acceptable Margin" /></span>
+              <span className="v2-d-val">−{fmtPct(marginRel)}</span>
+            </div>
+            <div className="v2-d-col">
+              <span className="v2-d-label">p-value</span>
+              <span className="v2-d-val">{fmtP(pRaw)}</span>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </article>
   );
 }
@@ -1647,6 +1653,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
   const marginRel = Number(marginPct) / 100;
   const isNonInf = question === "noninf";
   const [calculated, setCalculated] = useState(false);
+  const [viewMode, setViewMode] = useState("chart"); // chart | table
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
     [rows, alloc, question, goal, marginPct, k, confidence, twoTailed, durationDays]);
@@ -2126,11 +2133,12 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   const [convOverrides, setConvOverrides]       = useState(Array(8).fill(''));
   const [fileParsed, setFileParsed]             = useState(Array(8).fill(null)); // {values,errors,name}
   const [winsorize, setWinsorize]               = useState(false);
+  const [outlierPct, setOutlierPct]             = useState(0.99);
   const [calculated, setCalculated]             = useState(false);
   const fileRefs = useRef(Array.from({ length: 8 }, () => null));
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [visitorOverrides, convOverrides, fileParsed, winsorize, alloc, k, confidence, twoTailed, durationDays, rows]);
+    [visitorOverrides, convOverrides, fileParsed, winsorize, outlierPct, alloc, k, confidence, twoTailed, durationDays, rows]);
 
   // Effective visitors/conversions per variant: override takes priority, then CVR tab value
   const effectiveVisitors = labels.map((_, i) => {
@@ -2185,14 +2193,14 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   if (ready) {
     const allOrders  = armData.flatMap(a => a.orders);
     const sortedAll  = [...allOrders].sort((a, b) => a - b);
-    const p99        = percentile(sortedAll, 0.99);
+    const pLimit     = percentile(sortedAll, outlierPct);
     const skewFlag   = armData.some(a => {
       const srt = [...a.orders].sort((x,y) => x - y);
-      const ap99 = percentile(srt, 0.99);
-      return (ap99 > 0 && srt[srt.length-1] > 10*ap99) || skewness(a.orders) > 5;
+      const apLimit = percentile(srt, outlierPct);
+      return (apLimit > 0 && srt[srt.length-1] > 10*apLimit) || skewness(a.orders) > 5;
     });
     const cappedOrders = winsorize
-      ? armData.map(a => a.orders.map(x => Math.min(x, p99)))
+      ? armData.map(a => a.orders.map(x => Math.min(x, pLimit)))
       : armData.map(a => a.orders);
 
     const skewnessVerdict = (data) => {
@@ -2227,7 +2235,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     };
 
     analysis = {
-      skewFlag, p99, armStats,
+      skewFlag, pLimit, armStats,
       srm: srmCheck(armData.map(a => a.visitors), alloc.map(Number)),
       rpv: buildMetric('rpv'),
       aov: buildMetric('aov'),
@@ -2332,13 +2340,30 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
 
         <div className="outlier-wrap">
           <div className="outlier-header">
-            <h3 className="block-title" style={{margin:0}}>Outlier handling <Explainer id="winsorize" inline /></h3>
+            <h3 className="block-title" style={{margin:0}}><Explainer id="winsorize" inline label="Outlier handling" /></h3>
           </div>
-          <label className="check-row">
-            <input type="checkbox" checked={winsorize}
-              onChange={e => setWinsorize(e.target.checked)} />
-            Cap order value outliers at the 99th percentile {analysis ? `(${fmtMoney(analysis.p99)})` : '(optional)'}
-          </label>
+          <div className="outlier-controls" style={{marginTop: '12px'}}>
+            <label className="check-row">
+              <input type="checkbox" checked={winsorize}
+                onChange={e => setWinsorize(e.target.checked)} />
+              Cap order value outliers {analysis ? `at ${fmtMoney(analysis.pLimit)}` : '(optional)'}
+            </label>
+            {winsorize && (
+              <div style={{marginTop: '12px', paddingLeft: '28px'}}>
+                <SegControl
+                  legend="Capping threshold"
+                  name="outlier-pct"
+                  value={outlierPct}
+                  onChange={setOutlierPct}
+                  options={[
+                    { value: 0.90, label: "90th pct" },
+                    { value: 0.95, label: "95th pct" },
+                    { value: 0.99, label: "99th pct" },
+                  ]}
+                />
+              </div>
+            )}
+          </div>
           {analysis && analysis.skewFlag && !winsorize && (
             <div className="note outlier-note" style={{marginTop: '12px'}} role="status">
               <strong>Note:</strong> Your data is heavily skewed. Capping outliers is recommended for more reliable results.
@@ -2373,7 +2398,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
             <div className="test-pill">{twoTailed ? 'Two-tailed' : 'One-tailed'}</div>
             <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
             {corrected && <div className="test-pill">Multi-variant corrected</div>}
-            {winsorize && <div className="test-pill">Outliers capped</div>}
+            {winsorize && <div className="test-pill">Outliers capped ({outlierPct * 100}th pct)</div>}
           </div>
         </div>
         {analysis && (
@@ -2382,7 +2407,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               const rows = [
                 ["Eclipse — Revenue analysis", ""],
                 ["Generated", new Date().toLocaleString("en-GB")],
-                ["Test type", `Welch's t-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}${winsorize ? ", outliers capped at 99th pct" : ""}`],
+                ["Test type", `Welch's t-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}${winsorize ? `, outliers capped at ${outlierPct * 100}th pct` : ""}`],
                 ["Confidence", `${Math.round(confidence*100)}%`],
                 ["SRM check", analysis.srm ? (analysis.srm.flagged ? `Flagged (p=${fmtP(analysis.srm.p)})` : `Healthy (p=${fmtP(analysis.srm.p)})`) : ""],
                 [],
@@ -2408,7 +2433,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               if (!currentAnalysis) return;
               exportPdf("Revenue analysis", [
                 { heading: "Setup", lines: [
-                  `Welch's t-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}${winsorize ? ", outliers capped at 99th percentile" : ""}`,
+                  `Welch's t-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}${winsorize ? `, outliers capped at ${outlierPct * 100}th percentile` : ""}`,
                   `Confidence: ${Math.round(confidence*100)}%`,
                   currentAnalysis.srm ? (currentAnalysis.srm.flagged ? `SRM check: FLAGGED (p=${fmtP(currentAnalysis.srm.p)})` : `SRM check: healthy (p=${fmtP(currentAnalysis.srm.p)})`) : "",
                 ].filter(Boolean)},
@@ -2432,7 +2457,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               </p>
             )}
             <div className={analysis.srm && analysis.srm.flagged ? 'dimmed' : ''}>
-              <h3 className="sub-title">Revenue per visitor <Explainer id="aovrpv" inline /></h3>
+              <h3 className="sub-title"><Explainer id="aovrpv" inline label="Revenue per visitor" /></h3>
               <p className="field-hint">
                 Revenue Per Visitor (RPV) is the average amount of revenue generated by every person who entered the test, including those who didn't buy anything.
               </p>
@@ -2456,7 +2481,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 />
               ))}
 
-              <h3 className="sub-title">Average order value <Explainer id="aovrpv" inline /></h3>
+              <h3 className="sub-title"><Explainer id="aovrpv" inline label="Average order value" /></h3>
               <div className="aov-warning">
                 <strong>Important:</strong> Average order value only looks at people who made a purchase. 
                 If you use AOV as your primary metric, you might declare a winner that actually loses you money 
@@ -2541,6 +2566,7 @@ export default function EclipseCalculator() {
   const [postTab, setPostTab] = useState("cvr");
   const [confidence, setConfidence] = useState(0.95);
   const [tails, setTails] = useState("two");
+  const [power, setPower] = useState(0.8);
   const twoTailed = tails === "two";
 
   // Shared state between CVR and Revenue tabs
@@ -2614,6 +2640,18 @@ export default function EclipseCalculator() {
             { value: "one", label: "One-tailed" },
           ]}
         />
+        <SegControl
+          legend="Statistical power"
+          name="power-global"
+          value={power}
+          onChange={setPower}
+          explainerId="power"
+          options={[
+            { value: 0.7, label: "70%" },
+            { value: 0.8, label: "80%" },
+            { value: 0.9, label: "90%" },
+          ]}
+        />
       </section>
 
       {mode === "pre" && (
@@ -2629,8 +2667,8 @@ export default function EclipseCalculator() {
             </button>
           </nav>
           {preTab === "cvr" 
-            ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} />
-            : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} />
+            ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} />
+            : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} />
           }
         </>
       )}
@@ -2896,8 +2934,8 @@ const CSS = `
 /* explainers */
 .explainer{position:relative;display:inline-flex;align-items:center;line-height:1;}
 .explainer-inline{margin:0 0 0 4px;}
-.explainer-toggle{display:inline-flex;align-items:center;justify-content:center;background:none;border:0;padding:0;
-  color:var(--purple);cursor:pointer;text-align:left;font-family:'Inter',sans-serif;line-height:1;}
+.explainer-toggle{background:none;border:0;padding:0;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:inherit;font-weight:inherit;color:inherit;text-align:left;}
+.explainer-label-text{text-decoration:underline dotted var(--muted);text-underline-offset:3px;}
 .exp-ring{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
   background:var(--purple-soft);border:1px solid var(--line);border-radius:50%;font-size:10px;
   flex:none;color:var(--purple);font-weight:700;line-height:1;margin-top:-1px;}
@@ -2910,11 +2948,11 @@ const CSS = `
 .exp-lead{margin:0 0 8px;line-height:1.4;}
 .exp-bullets{margin:0 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:5px;line-height:1.4;}
 .exp-bullets li{padding-left:2px;}
-.exp-foot{margin:0;color:var(--muted);font-size:12.5px;line-height:1.4;}
+.exp-foot{margin:8px 0 0;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;}
 
 /* fields */
 .field{margin:0 0 20px;}
-.field-label-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;}
+.field-label-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-weight:600;font-size:13.5px;color:var(--ink);}
 .field-label{display:block;font-weight:600;font-size:13.5px;margin:0;}
 .field-hint{color:var(--muted);font-size:13.5px;margin:-2px 0 8px;max-width:58ch;text-align:left;}
 
@@ -2922,13 +2960,25 @@ const CSS = `
 .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 10px;}
 .stat{flex:1;background:var(--paper);border:1px solid var(--line);
   border-radius:12px;padding:14px 16px;min-width:0;word-break:break-word;}
-@media (max-width:600px){.stat{min-width:0;width:100%;padding:12px 10px;}}
+@media (max-width:600px){
+  .stat-row{display:grid;grid-template-columns:1fr;gap:10px;}
+  .stat{min-width:0;width:100%;padding:12px 10px;}
+}
 .stat-hero{background:var(--grad);border-color:transparent;color:#fff;}
 .stat-hero .stat-label{color:rgba(255,255,255,.85);}
 .stat-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
   color:var(--muted);margin-bottom:5px;}
 .stat-num{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:24px;font-weight:600;line-height:1.2;}
+.stat-sub-label{font-size:14px;opacity:0.9;margin-top:2px;}
 @media (max-width:600px){.stat-num{font-size:20px;}}
+
+.sub-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:24px 0 6px;flex-wrap:wrap;}
+.sub-title-row .sub-title{margin:0;}
+.view-toggle{display:inline-flex;background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:2px;}
+.view-btn{background:none;border:0;padding:4px 10px;font-size:12px;font-weight:600;color:var(--muted);cursor:pointer;border-radius:6px;}
+.view-btn-on{background:var(--card);color:var(--purple);box-shadow:var(--shadow);}
+
+.v2-details-toggle-wrap{margin-top:16px;border-top:1px solid var(--line);padding-top:12px;}
 .note{background:var(--warn-bg);border-left:3px solid var(--warn-edge);padding:11px 13px;
   border-radius:0 10px 10px 0;font-size:14px;margin:12px 0;}
 .chart-wrap{margin:6px 0 4px;min-width:0;width:100%;overflow:hidden;}
@@ -2969,12 +3019,12 @@ const CSS = `
 .v2-metrics{display:flex;gap:24px;align-items:center;background:var(--paper);padding:20px;border-radius:16px;margin-bottom:20px;flex-wrap:wrap;}
 @media (max-width:600px){.v2-metrics{padding:16px;gap:16px;flex-direction:column;align-items:stretch;}}
 .v2-metric-main{flex:1;}
-@media (max-width:600px){.v2-metric-main{min-width:0;width:100%;text-align:center;}}
+@media (max-width:600px){.v2-metric-main{min-width:0;width:100%;text-align:left;}}
 .v2-m-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;}
 .v2-m-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:32px;font-weight:700;line-height:1;}
 @media (max-width:600px){.v2-m-val{font-size:28px;}}
 .v2-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;border-left:1px solid var(--line);padding-left:24px;}
-@media (max-width:600px){.v2-metric-grid{border-left:0;padding-left:0;padding-top:16px;border-top:1px solid var(--line);min-width:0;width:100%;grid-template-columns:1fr;gap:12px;text-align:center;}}
+@media (max-width:600px){.v2-metric-grid{border-left:0;padding-left:0;padding-top:16px;border-top:1px solid var(--line);min-width:0;width:100%;grid-template-columns:1fr;gap:12px;text-align:left;}}
 .v2-m-item{display:flex;flex-direction:column;gap:4px;}
 .v2-m-i-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;}
 .v2-m-i-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:18px;font-weight:600;color:var(--ink);}

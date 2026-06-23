@@ -8,7 +8,7 @@
     <!-- Primary -->
     <title>A/B Test Calculator | Significance, Sample Size &amp; Revenue | Eclipse</title>
     <meta name="description" content="Free A/B test calculator for significance, sample size and test duration. Handles multiple variants and revenue per visitor, shows confidence intervals, and explains every result in plain English. Runs in your browser — no signup.">
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+    <meta name="robots" content="noindex, nofollow">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
@@ -32,12 +32,89 @@
       "applicationCategory": "BusinessApplication",
       "operatingSystem": "Web browser",
       "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
-      "description": "Free A/B test calculator for statistical significance, sample size, test duration and revenue analysis. Supports multiple variants and explains results in plain English."
+      "description": "Free A/B test calculator for significance, sample size, duration and revenue analysis with multiple variants and plain-English results."
+    }
+    </script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "How do I know if my A/B test result is statistically significant?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A result is statistically significant when the difference between your variants is unlikely to be down to random fluctuation. This calculator compares your conversion rates and tells you, in plain English, whether the difference clears your chosen confidence level (90%, 95% or 99%)."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How many visitors do I need for an A/B test?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "It depends on your baseline conversion rate, the smallest improvement you want to detect, and how many variants you're testing. Enter those in the planning calculator and it returns the visitors needed per variant and an estimated test duration in weeks."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can this calculator handle more than two variants?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. It supports A/B/C/n tests and automatically applies the correct multiple-comparison correction, which many calculators either can't do or handle incorrectly."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Can I measure the effect on revenue, not just conversion rate?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. Upload your order data and the calculator measures revenue per visitor and average order value, using the correct statistical test for revenue figures."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "How long should I run an A/B test?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Run it until it reaches the sample size your plan calls for, and ideally for at least one to two full weeks so it captures normal variation across the week. The planning calculator estimates the duration for you."
+          }
+        }
+      ]
     }
     </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="app-static-content" style="display:none">
+        <h1>A/B Test Calculator</h1>
+        <p>Plan and analyse A/B tests with precision. This tool helps you calculate required sample sizes and test duration before you start, and determines statistical significance, revenue impact, and multiple variant corrections once your test is complete.</p>
+        
+        <section>
+          <h2>Frequently Asked Questions</h2>
+          <div>
+            <h3>How do I know if my A/B test result is statistically significant?</h3>
+            <p>A result is statistically significant when the difference between your variants is unlikely to be down to random fluctuation. This calculator compares your conversion rates and tells you, in plain English, whether the difference clears your chosen confidence level (90%, 95% or 99%).</p>
+          </div>
+          <div>
+            <h3>How many visitors do I need for an A/B test?</h3>
+            <p>It depends on your baseline conversion rate, the smallest improvement you want to detect, and how many variants you're testing. Enter those in the planning calculator and it returns the visitors needed per variant and an estimated test duration in weeks.</p>
+          </div>
+          <div>
+            <h3>Can this calculator handle more than two variants?</h3>
+            <p>Yes. It supports A/B/C/n tests and automatically applies the correct multiple-comparison correction, which many calculators either can't do or handle incorrectly.</p>
+          </div>
+          <div>
+            <h3>Can I measure the effect on revenue, not just conversion rate?</h3>
+            <p>Yes. Upload your order data and the calculator measures revenue per visitor and average order value, using the correct statistical test for revenue figures.</p>
+          </div>
+          <div>
+            <h3>How long should I run an A/B test?</h3>
+            <p>Run it until it reaches the sample size your plan calls for, and ideally for at least one to two full weeks so it captures normal variation across the week. The planning calculator estimates the duration for you.</p>
+          </div>
+        </section>
+      </div>
+    </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>
