@@ -366,42 +366,15 @@ async function exportPdf(title, sections) {
   const nl = (h) => { y += h; if (y > page.getHeight() - M) { doc.addPage(); y = M; } };
 
   // Draw Logo using the actual SVG from the page
-  try {
-    const svgEl = document.querySelector('.brand-logo');
-    if (svgEl) {
-      const pink = getComputedStyle(document.documentElement).getPropertyValue('--pink').trim() || '#DC004A';
-      const svgClone = svgEl.cloneNode(true);
-      const path = svgClone.querySelector('path');
-      if (path) path.setAttribute('fill', pink);
-      
-      const svgString = new XMLSerializer().serializeToString(svgClone);
-      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-      
-      const img = new Image();
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = url;
-      });
-
-      const canvas = document.createElement('canvas');
-      const scale = 4; // High scale for crisp PDF
-      canvas.width = 120 * scale;
-      canvas.height = 35 * scale;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      URL.revokeObjectURL(url);
-      
-      doc.addImage(canvas.toDataURL('image/png'), 'PNG', M, y, 120, 35);
-      nl(45);
-    } else {
-      throw new Error("Logo not found");
-    }
+    const pink = getComputedStyle(document.documentElement).getPropertyValue('--pink').trim() || '#DC004A';
+    
+    // Use stylized text for PDF logo
+    const brandColor = [220, 0, 74]; // Default pink
+    doc.setFont("helvetica", "bold"); doc.setFontSize(24); doc.setTextColor(...brandColor);
+    doc.text("eclipse", M, y + 16); nl(32);
   } catch (e) {
-    // Fallback to stylized text if SVG fails
-    const brandColor = [220, 0, 74];
-    doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(...brandColor);
+    // Fallback if something goes wrong
+    doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.setTextColor(220, 0, 74);
     doc.text("eclipse", M, y + 16); nl(32);
   }
 
@@ -537,7 +510,7 @@ const EXPLAINERS = {
   },
   aovrpv: {
     label: "Why can AOV and RPV disagree?",
-    body: "AOV only counts people who purchased. A variant that persuades extra people to make small purchases pushes conversion and revenue per visitor up while pulling average order value down. RPV reflects the full effect on every visitor, which is why it's usually the primary revenue metric.",
+    body: "AOV only counts people who ordered. A variant that persuades extra people to make small orders pushes conversion and revenue per visitor up while pulling average order value down. RPV reflects the full effect on every visitor, which is why it's usually the primary revenue metric.",
   },
   mdeabs: {
     label: "Relative vs absolute — what's the difference?",
@@ -549,7 +522,7 @@ const EXPLAINERS = {
   },
   winsorize: {
     label: "What is capping outliers?",
-    body: "Revenue data often contains 'whales' — a few customers who spend 10x or 100x more than the average. These outliers can skew your results and make a variant look like a winner just because one person made a huge purchase. Capping (Winsorizing) replaces these extreme values with a lower threshold (e.g. the 99th percentile), making your statistical test more robust and reliable.",
+    body: "Revenue data often contains 'whales' — a few customers who spend 10x or 100x more than the average. These outliers can skew your results and make a variant look like a winner just because one person made a huge order. Capping (Winsorizing) replaces these extreme values with a lower threshold (e.g. the 99th percentile), making your statistical test more robust and reliable.",
   },
   skewness: {
     label: "What is data skewness?",
@@ -604,7 +577,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "What is the difference between conversion rate, RPV and AOV?",
-    a: "Conversion rate (CVR) is conversions divided by visitors. Revenue per visitor (RPV) is total revenue divided by all visitors, including non-buyers — usually the primary revenue metric because it reflects the full funnel. Average order value (AOV) is total revenue divided by orders only, so it ignores visitors who did not purchase. A variant can raise RPV while lowering AOV if it brings in more small orders.",
+    a: "Conversion rate (CVR) is conversions divided by visitors. Revenue per visitor (RPV) is total revenue divided by all visitors, including non-buyers — usually the primary revenue metric because it reflects the full funnel. Average order value (AOV) is total revenue divided by orders only, so it ignores visitors who did not order. A variant can raise RPV while lowering AOV if it brings in more small orders.",
   },
   {
     q: "What are confidence intervals in A/B test results?",
@@ -895,9 +868,8 @@ function SegControl({ legend, options, value, onChange, name, explainerId }) {
 function EclipseWordmark() {
   return (
     <div className="brand" role="img" aria-label="Eclipse">
-      <svg className="brand-logo" viewBox="0 0 342.86 100" height="34" aria-hidden="true">
-        <path d="M 260.14 80.73 L 254.14 80.73 L 253.92 79.85 L 248.80 79.85 L 248.58 78.96 L 247.03 78.96 L 246.80 78.08 L 245.25 78.08 L 245.03 77.20 L 243.47 77.20 L 243.36 76.43 L 242.47 76.21 L 241.47 74.56 L 239.91 74.56 L 239.80 73.79 L 238.91 73.57 L 238.91 72.03 L 237.13 70.93 L 237.13 69.38 L 236.24 69.16 L 236.24 67.62 L 235.35 67.40 L 235.35 65.86 L 234.46 65.64 L 234.46 64.10 L 236.13 63.99 L 236.35 63.11 L 238.80 63.11 L 239.02 62.22 L 242.36 62.22 L 242.58 61.34 L 245.03 61.34 L 245.25 60.46 L 246.03 60.57 L 246.03 62.11 L 246.91 62.33 L 246.91 63.88 L 248.69 64.98 L 248.69 66.52 L 249.47 66.63 L 249.58 67.40 L 250.36 67.51 L 250.58 68.39 L 252.14 68.39 L 252.36 69.27 L 254.81 69.27 L 255.03 70.15 L 259.26 70.15 L 259.48 69.27 L 261.92 69.27 L 262.92 67.62 L 263.70 67.51 L 263.81 66.74 L 265.59 65.64 L 265.59 60.57 L 264.81 60.46 L 264.70 59.69 L 263.92 59.58 L 263.81 58.81 L 263.04 58.70 L 261.92 56.94 L 259.48 56.94 L 259.26 56.06 L 257.70 56.06 L 257.48 55.18 L 255.03 55.18 L 254.81 54.30 L 252.36 54.30 L 252.14 53.41 L 249.69 53.41 L 249.47 52.53 L 247.92 52.53 L 247.69 51.65 L 246.14 51.65 L 245.91 50.77 L 244.36 50.77 L 243.25 49.01 L 241.69 49.01 L 241.47 48.13 L 240.69 48.02 L 240.69 46.48 L 239.91 46.37 L 239.80 45.59 L 238.02 44.49 L 238.02 42.07 L 237.13 41.85 L 237.13 37.67 L 236.24 37.44 L 236.24 35.02 L 237.13 34.80 L 237.13 30.62 L 238.02 30.40 L 238.02 28.85 L 238.91 28.63 L 238.91 27.09 L 239.80 26.87 L 239.80 26.21 L 240.58 26.10 L 240.69 25.33 L 241.47 25.22 L 241.58 24.45 L 242.36 24.34 L 243.47 22.58 L 245.03 22.58 L 245.25 21.70 L 246.80 21.70 L 247.03 20.81 L 249.47 20.81 L 249.69 19.93 L 257.48 19.93 L 257.70 19.05 L 258.37 19.05 L 258.59 19.93 L 263.70 19.93 L 263.92 20.81 L 265.48 20.81 L 265.70 21.70 L 267.26 21.70 L 267.48 22.58 L 269.04 22.58 L 269.26 23.46 L 270.82 23.46 L 271.04 24.34 L 272.71 25.33 L 272.71 26.87 L 273.49 26.98 L 273.60 27.75 L 275.38 28.85 L 275.38 30.40 L 276.26 30.62 L 276.26 32.16 L 277.15 32.38 L 277.04 34.03 L 275.49 34.03 L 275.26 34.91 L 272.82 34.91 L 272.60 35.79 L 269.26 35.79 L 269.04 36.67 L 265.70 36.67 L 265.48 35.79 L 264.70 35.68 L 264.70 34.14 L 263.92 34.03 L 262.92 32.38 L 262.03 32.16 L 261.92 31.39 L 260.37 31.39 L 260.14 30.51 L 253.25 30.51 L 253.03 31.39 L 251.47 31.39 L 251.25 32.27 L 249.58 32.38 L 249.58 34.80 L 248.69 35.02 L 248.69 37.44 L 249.58 37.67 L 249.58 39.21 L 250.36 39.32 L 250.47 40.09 L 251.25 40.20 L 252.36 41.96 L 253.92 41.96 L 254.14 42.84 L 256.59 42.84 L 256.81 43.72 L 259.26 43.72 L 259.48 44.60 L 261.92 44.60 L 262.15 45.48 L 263.70 45.48 L 263.92 46.37 L 266.37 46.37 L 266.59 47.25 L 268.15 47.25 L 268.37 48.13 L 269.93 48.13 L 270.04 48.90 L 270.82 49.01 L 271.93 50.77 L 273.49 50.77 L 273.71 51.65 L 275.38 52.64 L 275.38 54.19 L 276.26 54.41 L 276.26 55.95 L 277.15 56.17 L 277.15 57.71 L 278.04 57.93 L 278.04 67.40 L 277.15 67.62 L 277.15 70.04 L 276.26 70.26 L 276.26 71.81 L 275.49 71.92 L 275.38 72.69 L 274.60 72.80 L 274.37 73.68 L 273.71 73.68 L 273.49 74.56 L 272.82 74.56 L 271.82 76.21 L 270.93 76.43 L 270.82 77.20 L 269.26 77.20 L 269.04 78.08 L 267.48 78.08 L 267.26 78.96 L 264.81 78.96 L 264.59 79.85 L 260.37 79.85 L 260.14 80.73 Z M 100.06 80.73 L 92.27 80.73 L 92.05 79.85 L 87.83 79.85 L 87.60 78.96 L 84.27 78.96 L 84.05 78.08 L 82.49 78.08 L 82.27 77.20 L 80.71 77.20 L 80.49 76.32 L 78.93 76.32 L 77.82 74.56 L 76.26 74.56 L 76.15 73.79 L 75.38 73.68 L 75.26 72.91 L 74.49 72.80 L 73.49 71.15 L 71.71 70.04 L 71.60 69.27 L 70.82 69.16 L 70.82 67.62 L 69.04 66.52 L 69.04 64.98 L 68.15 64.76 L 68.15 63.22 L 67.26 63.00 L 67.26 60.57 L 66.37 60.35 L 66.37 57.93 L 65.48 57.71 L 65.48 53.52 L 64.59 53.30 L 64.59 47.36 L 65.48 47.14 L 65.48 42.07 L 66.37 41.85 L 66.37 39.43 L 67.26 39.21 L 67.26 36.78 L 68.15 36.56 L 68.15 35.02 L 69.04 34.80 L 69.04 33.26 L 70.82 32.16 L 70.82 30.62 L 71.60 30.51 L 71.71 29.74 L 72.60 29.52 L 72.60 28.85 L 73.37 28.74 L 73.49 27.97 L 74.26 27.86 L 75.38 26.10 L 76.93 26.10 L 77.04 25.33 L 77.82 25.22 L 78.93 23.46 L 81.38 23.46 L 81.60 22.58 L 83.16 22.58 L 83.38 21.70 L 84.94 21.70 L 85.16 20.81 L 87.60 20.81 L 87.83 19.93 L 104.50 19.93 L 104.72 20.81 L 107.17 20.81 L 107.39 21.70 L 109.84 21.70 L 110.06 22.58 L 111.62 22.58 L 111.84 23.46 L 113.40 23.46 L 114.51 25.22 L 116.06 25.22 L 117.18 26.98 L 117.84 26.98 L 117.95 27.75 L 119.73 28.85 L 119.73 29.52 L 121.51 30.62 L 121.51 32.16 L 122.40 32.38 L 122.40 33.92 L 123.29 34.14 L 123.29 35.68 L 124.18 35.90 L 124.07 36.67 L 122.51 36.67 L 122.29 37.56 L 120.73 37.56 L 120.51 38.44 L 118.95 38.44 L 118.73 39.32 L 116.29 39.32 L 116.06 40.20 L 114.51 40.20 L 114.40 40.97 L 113.62 41.08 L 113.40 40.20 L 111.84 40.20 L 111.73 39.43 L 109.95 38.33 L 109.84 36.67 L 108.28 36.67 L 108.17 35.90 L 106.50 34.91 L 106.28 34.03 L 104.72 34.03 L 104.50 33.15 L 102.95 33.15 L 102.72 32.27 L 100.28 32.27 L 100.06 31.39 L 92.27 31.39 L 92.05 32.27 L 89.61 32.27 L 89.38 33.15 L 87.83 33.15 L 87.60 34.03 L 86.05 34.03 L 84.94 35.79 L 83.38 35.79 L 83.27 36.56 L 81.49 37.67 L 81.49 39.21 L 80.60 39.43 L 80.60 40.97 L 79.71 41.19 L 79.71 42.73 L 78.82 42.95 L 78.82 45.37 L 77.93 45.59 L 77.93 54.19 L 78.82 54.41 L 78.82 57.71 L 79.71 57.93 L 79.71 59.47 L 81.49 60.57 L 81.49 62.11 L 83.16 63.11 L 83.38 63.99 L 84.05 63.99 L 84.27 64.87 L 85.83 64.87 L 86.94 66.63 L 88.49 66.63 L 88.72 67.51 L 91.16 67.51 L 91.38 68.39 L 100.94 68.39 L 101.17 67.51 L 103.61 67.51 L 103.84 66.63 L 105.39 66.63 L 105.61 65.75 L 107.17 65.75 L 107.28 64.98 L 108.06 64.87 L 108.17 64.10 L 108.95 63.99 L 109.06 63.22 L 110.84 62.11 L 110.95 61.34 L 111.73 61.23 L 111.73 59.69 L 112.51 59.58 L 112.73 58.70 L 115.18 58.70 L 115.40 59.58 L 117.84 59.58 L 118.07 60.46 L 119.62 60.46 L 119.84 61.34 L 122.29 61.34 L 122.51 62.22 L 124.18 62.33 L 124.18 64.76 L 123.29 64.98 L 123.29 66.52 L 122.40 66.74 L 122.40 68.28 L 121.62 68.39 L 120.51 70.15 L 119.84 70.15 L 119.73 70.93 L 118.95 71.04 L 118.84 71.81 L 118.07 71.92 L 117.95 72.69 L 117.18 72.80 L 116.06 74.56 L 114.51 74.56 L 113.40 76.32 L 111.84 76.32 L 111.62 77.20 L 110.06 77.20 L 109.84 78.08 L 107.39 78.08 L 107.17 78.96 L 104.72 78.96 L 104.50 79.85 L 100.28 79.85 L 100.06 80.73 Z M 316.18 80.73 L 308.39 80.73 L 308.17 79.85 L 303.06 79.85 L 302.83 78.96 L 299.50 78.96 L 299.28 78.08 L 297.72 78.08 L 297.50 77.20 L 295.94 77.20 L 295.72 76.32 L 294.16 76.32 L 293.94 75.44 L 292.38 75.44 L 292.27 74.67 L 291.38 74.45 L 290.38 72.80 L 288.72 72.69 L 288.72 71.15 L 287.94 71.04 L 287.72 70.15 L 287.05 70.15 L 286.94 69.38 L 285.16 68.28 L 285.16 66.74 L 283.38 65.64 L 283.38 64.10 L 282.49 63.88 L 282.49 61.45 L 281.60 61.23 L 281.60 58.81 L 280.71 58.59 L 280.71 55.29 L 279.82 55.07 L 279.82 45.59 L 280.71 45.37 L 280.71 41.19 L 281.60 40.97 L 281.60 38.55 L 282.49 38.33 L 282.49 36.78 L 283.38 36.56 L 283.38 35.02 L 284.27 34.80 L 284.27 33.26 L 285.16 33.04 L 285.16 31.50 L 285.94 31.39 L 286.05 30.62 L 286.83 30.51 L 287.94 28.74 L 288.72 28.63 L 288.72 27.97 L 289.49 27.86 L 289.61 27.09 L 290.38 26.98 L 291.50 25.22 L 293.05 25.22 L 294.16 23.46 L 295.72 23.46 L 295.94 22.58 L 297.50 22.58 L 297.72 21.70 L 300.17 21.70 L 300.39 20.81 L 302.83 20.81 L 303.06 19.93 L 318.84 19.93 L 319.07 20.81 L 322.40 20.81 L 322.62 21.70 L 324.18 21.70 L 324.40 22.58 L 325.96 22.58 L 326.18 23.46 L 327.74 23.46 L 327.96 24.34 L 329.52 24.34 L 329.63 25.11 L 330.41 25.22 L 330.52 25.99 L 331.30 26.10 L 331.41 26.87 L 333.19 27.97 L 333.30 28.74 L 333.96 28.74 L 334.19 29.63 L 334.85 29.63 L 334.96 30.40 L 335.74 30.51 L 335.85 31.28 L 337.63 32.38 L 337.63 33.92 L 338.52 34.14 L 338.52 35.68 L 339.41 35.90 L 339.41 37.44 L 340.30 37.67 L 340.30 40.97 L 341.19 41.19 L 341.19 44.49 L 342.08 44.71 L 341.97 54.30 L 293.16 54.41 L 293.16 56.83 L 294.05 57.05 L 294.05 59.47 L 295.83 60.57 L 295.83 62.11 L 296.72 62.33 L 296.72 63.00 L 297.50 63.11 L 297.61 63.88 L 298.39 63.99 L 298.50 64.76 L 299.28 64.87 L 300.39 66.63 L 301.95 66.63 L 302.17 67.51 L 304.61 67.51 L 304.84 68.39 L 307.28 68.39 L 307.50 69.27 L 316.18 69.27 L 316.40 68.39 L 319.73 68.39 L 319.96 67.51 L 322.40 67.51 L 323.51 65.75 L 325.07 65.75 L 325.29 64.87 L 325.96 64.87 L 326.18 63.99 L 327.85 63.00 L 327.96 62.22 L 329.52 62.22 L 329.74 60.46 L 330.52 60.57 L 330.63 61.34 L 332.18 61.34 L 332.41 62.22 L 333.96 62.22 L 335.08 63.99 L 336.63 63.99 L 336.85 64.87 L 338.41 64.87 L 338.52 65.64 L 339.41 65.86 L 339.41 68.28 L 338.63 68.39 L 338.52 69.16 L 336.74 70.26 L 336.74 70.93 L 335.85 71.15 L 335.85 71.81 L 334.96 72.03 L 334.96 72.69 L 334.19 72.80 L 333.07 74.56 L 331.52 74.56 L 330.41 76.32 L 328.85 76.32 L 328.63 77.20 L 327.07 77.20 L 326.85 78.08 L 324.40 78.08 L 324.18 78.96 L 321.73 78.96 L 321.51 79.85 L 316.40 79.85 L 316.18 80.73 Z M 11.12 72.80 L 10.45 72.80 L 10.23 71.92 L 8.56 71.81 L 8.56 70.26 L 7.78 70.15 L 6.67 68.39 L 5.89 68.28 L 5.89 66.74 L 4.11 65.64 L 4.11 64.10 L 3.22 63.88 L 3.22 61.45 L 2.33 61.23 L 2.33 58.81 L 1.45 58.59 L 1.45 54.41 L 0.56 54.19 L 0.56 47.36 L 1.45 47.14 L 1.45 42.07 L 2.33 41.85 L 2.33 38.55 L 3.22 38.33 L 3.22 36.78 L 4.11 36.56 L 4.11 35.02 L 5.00 34.80 L 5.00 33.26 L 6.78 32.16 L 6.78 30.62 L 7.56 30.51 L 7.67 29.74 L 8.56 29.52 L 9.56 27.86 L 10.23 27.86 L 10.45 26.98 L 12.12 27.97 L 12.23 42.84 L 13.01 42.73 L 13.01 41.19 L 13.90 40.97 L 13.90 39.43 L 14.67 39.32 L 15.79 37.56 L 16.56 37.44 L 16.56 35.90 L 17.34 35.79 L 17.57 34.91 L 19.12 34.91 L 19.34 34.03 L 20.01 34.03 L 20.23 44.60 L 48.47 44.60 L 48.58 42.95 L 47.69 42.73 L 47.69 40.31 L 46.80 40.09 L 46.80 38.55 L 45.03 37.44 L 45.03 35.90 L 44.25 35.79 L 43.14 34.03 L 41.58 34.03 L 40.47 32.27 L 38.02 32.27 L 37.80 31.39 L 35.35 31.39 L 35.13 30.51 L 27.35 30.51 L 27.13 31.39 L 23.79 31.39 L 23.57 32.27 L 22.01 32.27 L 21.79 33.15 L 20.23 33.15 L 20.12 20.93 L 22.68 20.81 L 22.90 19.93 L 29.79 19.93 L 30.02 19.05 L 30.68 19.05 L 30.91 19.93 L 38.69 19.93 L 38.91 20.81 L 41.36 20.81 L 41.58 21.70 L 44.02 21.70 L 44.25 22.58 L 45.80 22.58 L 46.03 23.46 L 47.58 23.46 L 48.69 25.22 L 50.25 25.22 L 50.36 25.99 L 52.14 27.09 L 52.14 27.75 L 52.92 27.86 L 53.14 28.74 L 53.81 28.74 L 53.92 29.52 L 54.70 29.63 L 55.81 31.39 L 56.59 31.50 L 56.59 33.04 L 57.48 33.26 L 57.48 34.80 L 59.26 35.90 L 59.26 38.33 L 60.14 38.55 L 60.14 40.97 L 61.03 41.19 L 61.03 46.26 L 61.92 46.48 L 61.92 52.42 L 61.03 52.64 L 61.03 54.19 L 21.12 54.30 L 21.01 55.07 L 20.12 55.29 L 20.01 65.75 L 19.34 65.75 L 18.23 63.99 L 16.56 63.88 L 16.56 62.33 L 15.79 62.22 L 15.68 61.45 L 13.90 60.35 L 13.90 58.81 L 13.01 58.59 L 13.01 57.05 L 12.23 56.94 L 12.12 71.81 L 11.34 71.92 L 11.12 72.80 Z M 182.77 99.23 L 171.43 99.23 L 171.21 98.35 L 169.54 97.36 L 169.54 22.69 L 170.43 22.47 L 170.54 20.81 L 181.88 20.81 L 181.99 24.23 L 182.88 24.45 L 182.88 27.75 L 183.66 27.86 L 183.77 27.09 L 185.44 26.10 L 185.66 25.22 L 187.22 25.22 L 188.33 23.46 L 189.88 23.46 L 190.11 22.58 L 191.66 22.58 L 191.88 21.70 L 193.44 21.70 L 193.66 20.81 L 196.11 20.81 L 196.33 19.93 L 211.23 19.93 L 211.45 20.81 L 213.90 20.81 L 214.12 21.70 L 216.56 21.70 L 216.79 22.58 L 218.34 22.58 L 219.46 24.34 L 221.01 24.34 L 221.23 25.22 L 222.90 26.21 L 223.01 26.98 L 224.57 26.98 L 224.68 27.75 L 225.57 27.97 L 225.57 29.52 L 226.35 29.63 L 226.57 30.51 L 228.24 31.50 L 228.24 33.04 L 229.13 33.26 L 229.13 34.80 L 230.02 35.02 L 230.02 36.56 L 230.91 36.78 L 230.91 38.33 L 231.80 38.55 L 231.80 40.97 L 232.68 41.19 L 232.68 45.37 L 233.57 45.59 L 233.57 54.19 L 232.68 54.41 L 232.68 58.59 L 231.80 58.81 L 231.80 61.23 L 230.91 61.45 L 230.91 63.88 L 230.02 64.10 L 230.02 65.64 L 228.24 66.74 L 228.24 68.28 L 227.46 68.39 L 227.35 69.16 L 226.57 69.27 L 226.46 70.04 L 224.68 71.15 L 224.68 72.69 L 223.79 72.91 L 223.68 73.68 L 222.12 73.68 L 222.01 74.45 L 221.23 74.56 L 220.12 76.32 L 218.57 76.32 L 218.34 77.20 L 216.79 77.20 L 216.56 78.08 L 214.12 78.08 L 213.90 78.96 L 212.34 78.96 L 212.12 79.85 L 207.00 79.85 L 206.78 80.73 L 199.89 80.73 L 199.67 79.85 L 195.44 79.85 L 195.22 78.96 L 192.77 78.96 L 192.55 78.08 L 190.99 78.08 L 190.77 77.20 L 189.22 77.20 L 188.10 75.44 L 186.55 75.44 L 186.44 74.67 L 184.66 73.57 L 184.55 72.80 L 182.99 72.80 L 182.77 99.23 Z M 206.89 68.28 L 207.00 67.51 L 209.45 67.51 L 209.67 66.63 L 211.23 66.63 L 211.45 65.75 L 213.01 65.75 L 213.12 64.98 L 213.90 64.87 L 214.12 63.99 L 214.79 63.99 L 214.90 63.22 L 216.68 62.11 L 216.68 60.57 L 218.45 59.47 L 218.45 57.93 L 219.34 57.71 L 219.34 54.41 L 220.23 54.19 L 220.23 45.59 L 219.34 45.37 L 219.34 42.95 L 218.45 42.73 L 218.45 41.19 L 217.57 40.97 L 217.57 39.43 L 216.68 39.21 L 216.68 37.67 L 215.01 37.56 L 214.79 36.67 L 214.12 36.67 L 214.01 35.90 L 212.23 34.80 L 212.12 34.03 L 210.56 34.03 L 210.34 33.15 L 208.78 33.15 L 208.56 32.27 L 206.11 32.27 L 205.89 31.39 L 198.11 31.39 L 197.89 32.27 L 194.55 32.27 L 194.33 33.15 L 192.77 33.15 L 191.66 34.91 L 190.11 34.91 L 189.99 35.68 L 189.22 35.79 L 189.11 36.56 L 188.33 36.67 L 187.22 38.44 L 186.44 38.55 L 186.44 40.09 L 184.66 41.19 L 184.66 43.61 L 183.77 43.83 L 183.77 47.14 L 182.88 47.36 L 182.88 52.42 L 183.77 52.64 L 183.77 56.83 L 184.66 57.05 L 184.66 58.59 L 185.55 58.81 L 185.55 60.35 L 186.44 60.57 L 186.44 61.23 L 187.33 61.45 L 187.33 62.11 L 188.22 62.33 L 188.22 63.00 L 188.99 63.11 L 189.11 63.88 L 189.88 63.99 L 190.99 65.75 L 192.55 65.75 L 192.77 66.63 L 194.33 66.63 L 194.55 67.51 L 197.00 67.51 L 197.22 68.39 L 206.89 68.28 Z M 36.02 80.73 L 28.24 80.73 L 28.02 79.85 L 22.01 79.85 L 21.79 78.96 L 20.23 78.96 L 20.12 66.74 L 21.79 66.63 L 22.01 67.51 L 23.57 67.51 L 23.79 68.39 L 27.13 68.39 L 27.35 69.27 L 36.02 69.27 L 36.24 68.39 L 39.58 68.39 L 39.80 67.51 L 41.36 67.51 L 41.58 66.63 L 43.14 66.63 L 44.25 64.87 L 45.80 64.87 L 45.91 64.10 L 47.69 63.00 L 47.69 61.45 L 48.47 61.34 L 48.69 60.46 L 50.25 60.46 L 50.47 61.34 L 52.03 61.34 L 52.25 62.22 L 53.81 62.22 L 54.92 63.99 L 56.48 63.99 L 57.59 65.75 L 59.26 65.86 L 59.26 67.40 L 58.37 67.62 L 58.37 69.16 L 57.59 69.27 L 57.48 70.04 L 56.70 70.15 L 56.59 70.93 L 55.81 71.04 L 55.70 71.81 L 54.92 71.92 L 53.81 73.68 L 53.14 73.68 L 52.92 74.56 L 51.36 74.56 L 50.25 76.32 L 48.69 76.32 L 48.47 77.20 L 46.91 77.20 L 46.69 78.08 L 44.25 78.08 L 44.02 78.96 L 41.58 78.96 L 41.36 79.85 L 36.24 79.85 L 36.02 80.73 Z M 328.74 44.49 L 328.74 42.07 L 327.85 41.85 L 327.85 40.31 L 326.96 40.09 L 326.96 38.55 L 326.07 38.33 L 326.07 36.78 L 325.18 36.56 L 325.18 35.90 L 324.29 35.68 L 323.29 34.03 L 321.73 34.03 L 320.62 32.27 L 318.18 32.27 L 317.95 31.39 L 315.51 31.39 L 315.29 30.51 L 307.50 30.51 L 307.28 31.39 L 303.95 31.39 L 303.72 32.27 L 302.17 32.27 L 301.95 33.15 L 300.39 33.15 L 300.28 33.92 L 299.50 34.03 L 299.39 34.80 L 298.61 34.91 L 298.50 35.68 L 297.72 35.79 L 296.61 37.56 L 295.83 37.67 L 295.83 39.21 L 294.94 39.43 L 294.94 40.97 L 294.05 41.19 L 294.05 42.73 L 293.16 42.95 L 293.27 44.60 L 328.74 44.49 Z M 162.31 78.96 L 149.08 78.85 L 149.08 21.81 L 149.86 21.70 L 150.08 20.81 L 162.42 20.93 L 162.31 78.96 Z M 162.31 13.77 L 149.08 13.66 L 149.19 0.55 L 162.42 0.66 L 162.31 13.77 Z M 140.97 78.96 L 127.74 78.85 L 127.85 0.55 L 141.08 0.66 L 140.97 78.96 Z" fill="var(--pink)" fillRule="evenodd" />
-      </svg>
+      <img src="/favicon.png" alt="" width="32" height="32" className="brand-mark" />
+      <span className="brand-word">eclipse</span>
     </div>
   );
 }
@@ -996,9 +968,76 @@ function VariantStepper({ k, setVariantCount, idBase }) {
   );
 }
 
+function PlanningDataSource({ value, onChange }) {
+  return (
+    <div className="choice-row">
+      <button type="button" className={`choice-opt ${value === 'manual' ? 'choice-opt-on' : ''}`}
+        onClick={() => onChange('manual')}>
+        <span className="choice-title">Manual entry</span>
+        <span className="choice-desc">Enter your baseline and target uplift manually.</span>
+      </button>
+      <button type="button" className={`choice-opt ${value === 'historical' ? 'choice-opt-on' : ''}`}
+        onClick={() => onChange('historical')}>
+        <div className="choice-title">
+          Historical data
+          <span className="badge-soon">Coming Soon</span>
+        </div>
+        <span className="choice-desc">Import data to auto-fill baseline and seasonal trends.</span>
+      </button>
+    </div>
+  );
+}
+
+function MetricSelector({ preTab, setPreTab, revMetric, setRevMetric }) {
+  return (
+    <div className="metric-selector-flow">
+      <h3 className="flow-title">Which metric would you like to use to calculate sample size?</h3>
+      <div className="choice-row" style={{ marginBottom: preTab === 'revenue' ? '20px' : '0' }}>
+        <button type="button" className={`choice-opt ${preTab === 'cvr' ? 'choice-opt-on' : ''}`}
+          onClick={() => setPreTab('cvr')}>
+          <span className="choice-title">Conversion rate</span>
+          <span className="choice-desc">e.g. clicks, signups, orders</span>
+        </button>
+        <button type="button" className={`choice-opt ${preTab === 'revenue' ? 'choice-opt-on' : ''}`}
+          onClick={() => setPreTab('revenue')}>
+          <span className="choice-title">Revenue figure</span>
+          <span className="choice-desc">e.g. RPV, AOV, total revenue</span>
+        </button>
+      </div>
+
+      {preTab === 'revenue' && (
+        <div className="revenue-sub-options animated-fade-in">
+          <Field label="Which specific revenue metric are you tracking?" htmlFor="rev-metric-select">
+            <select
+              id="rev-metric-select"
+              className="input select"
+              value={revMetric}
+              onChange={(e) => setRevMetric(e.target.value)}
+            >
+              <option value="rpv">Revenue per visitor (RPV)</option>
+              <option value="aov">Average order value (AOV)</option>
+              <option value="margin">Margin</option>
+              <option value="total">Total revenue from test</option>
+              <option value="notsure">Not sure</option>
+            </select>
+            <div className="field-hint">
+              {revMetric === 'rpv' && "Measures total revenue divided by all visitors. Best for overall business impact."}
+              {revMetric === 'aov' && "Measures revenue per order. Note: This assumes you want to detect a change among buyers only."}
+              {revMetric === 'margin' && "Measures profit margin per visitor instead of gross revenue."}
+              {revMetric === 'total' && "Total revenue accumulated over the test period."}
+              {revMetric === 'notsure' && "Revenue per Visitor (RPV) is usually the best primary metric for most A/B tests."}
+            </div>
+          </Field>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ─────────────────────── PRE_TEST mode (§2) ───────────────────── */
 
 function PreTest({ confidence, twoTailed, power, setPower }) {
+  const [dataSource, setDataSource] = useState("manual");
   const [baseline, setBaseline] = useState("");
   const [mde, setMde] = useState("");
   const [traffic, setTraffic] = useState("");
@@ -1060,6 +1099,28 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="pre-h">
+        <PlanningDataSource value={dataSource} onChange={setDataSource} />
+
+        {dataSource === 'historical' && (
+          <div className="coming-soon-placeholder animated-fade-in">
+            <Field label={<span>Test month <span className="badge-soon">Coming Soon</span></span>} htmlFor="pre-month">
+              <select id="pre-month" className="input select" disabled style={{opacity: 0.6}}>
+                <option>Select month...</option>
+                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+              <div className="field-hint">Used for seasonal adjustments when historical data is connected.</div>
+            </Field>
+
+            <Field label={<span>Upload historical data <span className="badge-soon">Coming Soon</span></span>}>
+              <div className="upload-placeholder">
+                <UploadIcon />
+                <span>Drag and drop your historical CSV here</span>
+              </div>
+            </Field>
+          </div>
+        )}
 
         <Field label="Baseline conversion rate (%)" htmlFor="pre-baseline" error={errors.baseline} explainerId="ztest"
           hint="Your current conversion rate, before the test.">
@@ -1213,7 +1274,8 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
 }
 
 /* Expandable "show the working" detail — z-test internals + distribution chart */
-function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
+function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
+  const [dataSource, setDataSource] = useState("manual");
   const [cv, setCv] = useState("1.5");
   const [mde, setMde] = useState("");
   const [traffic, setTraffic] = useState("");
@@ -1225,6 +1287,25 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
   const [sdCalcOpen, setSdCalcOpen] = useState(false);
   const [sdInput, setSdInput] = useState("");
   const [sdResult, setSdResult] = useState(null);
+
+  const metricLabel = useMemo(() => {
+    switch (revMetric) {
+      case 'aov': return "Average Order Value (AOV)";
+      case 'margin': return "Margin";
+      case 'total': return "Total Revenue";
+      default: return "Revenue per Visitor (RPV)";
+    }
+  }, [revMetric]);
+
+  const trafficLabel = useMemo(() => {
+    if (revMetric === 'aov') return "Orders (all variants combined)";
+    return "Visitors (all variants combined)";
+  }, [revMetric]);
+
+  const trafficHint = useMemo(() => {
+    if (revMetric === 'aov') return "The number of orders you expect to see in the given period.";
+    return "The number of visitors you expect to see in the given period.";
+  }, [revMetric]);
 
   const labels = useMemo(() => makeLabels(k), [k]);
   const setVariantCount = (next) => {
@@ -1287,21 +1368,44 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="pre-rev-h">
-        <Field label="Coefficient of Variation (CV)" htmlFor="pre-cv" error={errors.cv} explainerId="cv"
-          hint="Standard deviation divided by the mean. Usually between 1.0 and 2.5 for revenue.">
+        <PlanningDataSource value={dataSource} onChange={setDataSource} />
+
+        {dataSource === 'historical' && (
+          <div className="coming-soon-placeholder animated-fade-in">
+            <Field label={<span>Test month <span className="badge-soon">Coming Soon</span></span>} htmlFor="pre-rev-month">
+              <select id="pre-rev-month" className="input select" disabled style={{opacity: 0.6}}>
+                <option>Select month...</option>
+                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
+                  <option key={m}>{m}</option>
+                ))}
+              </select>
+              <div className="field-hint">Used for seasonal adjustments when historical data is connected.</div>
+            </Field>
+
+            <Field label={<span>Upload historical revenue data <span className="badge-soon">Coming Soon</span></span>}>
+              <div className="upload-placeholder">
+                <UploadIcon />
+                <span>Drag and drop your order-level CSV here</span>
+              </div>
+            </Field>
+          </div>
+        )}
+
+        <Field label={`Coefficient of Variation (CV) for ${metricLabel}`} htmlFor="pre-cv" error={errors.cv} explainerId="cv"
+          hint={`Standard deviation divided by the mean for ${metricLabel}.`}>
           <input id="pre-cv" className="input" type="number" min="0" step="0.01" placeholder="e.g. 1.5"
             value={cv} onChange={(e) => setCv(e.target.value)} />
         </Field>
 
         <div className="sd-calc-section">
           <button type="button" className="btn-text" onClick={() => setSdCalcOpen(!sdCalcOpen)}>
-            {sdCalcOpen ? "− Hide" : "+ Don't know your CV? Calculate it from historical data"}
+            {sdCalcOpen ? "− Hide" : `+ Don't know your CV? Calculate it from historical ${metricLabel} data`}
           </button>
           {sdCalcOpen && (
             <div className="sd-calc-box">
               <p className="field-hint">
-                Paste a list of individual order values (the total revenue from each transaction) from a recent period, such as the last 30 days. 
-                This calculates the spread (CV) of your revenue data, which is required to plan a revenue-based test.
+                Paste a list of individual {revMetric === 'aov' ? 'order values' : 'revenue per visitor values'} from a recent period. 
+                This calculates the spread (CV) of your {metricLabel} data.
               </p>
               <textarea
                 className="input"
@@ -1340,9 +1444,9 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
         </div>
 
         <Field
-          label="Minimum detectable effect (relative uplift, %)"
+          label={`Minimum detectable effect (relative uplift in ${metricLabel}, %)`}
           htmlFor="pre-rev-mde"
-          hint="The smallest uplift in revenue worth detecting."
+          hint={`The smallest uplift in ${metricLabel} worth detecting.`}
           error={errors.mde}
           explainerId="mde"
         >
@@ -1350,7 +1454,7 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
             value={mde} onChange={(e) => setMde(e.target.value)} />
         </Field>
 
-        <Field label="Visitors (all variants combined)" htmlFor="pre-rev-traffic" error={errors.traffic}>
+        <Field label={trafficLabel} htmlFor="pre-rev-traffic" error={errors.traffic} hint={trafficHint}>
           <div className="traffic-row">
             <input id="pre-rev-traffic" className="input" type="number" min="1" step="1" placeholder="e.g. 50,000"
               value={traffic} onChange={(e) => setTraffic(e.target.value)} />
@@ -1397,40 +1501,40 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
           <ExportButtons
             onCsv={() => {
               const rows = [
-                ["Eclipse — Revenue planning", ""],
+                [`Eclipse — ${metricLabel} planning`, ""],
                 ["Generated", new Date().toLocaleString("en-GB")],
                 [],
                 ["Inputs", ""],
-                ["Coefficient of Variation (CV)", cv],
+                [`Coefficient of Variation (CV) for ${metricLabel}`, cv],
                 ["Minimum detectable effect (relative)", `${mde}%`],
-                ["Visitors", `${traffic} ${period === "day" ? "per day" : period === "month" ? "per month" : "per week"}`],
+                [trafficLabel, `${traffic} ${period === "day" ? "per day" : period === "month" ? "per month" : "per week"}`],
                 ["Variants (incl. control)", k],
                 ["Confidence level", `${Math.round(confidence*100)}%`],
                 ["Statistical power", `${Math.round(power*100)}%`],
                 ["Tails", twoTailed ? "Two-tailed" : "One-tailed"],
                 [],
                 ["Results", ""],
-                ["Visitors required per variant", result.nPerArm],
-                ["Total visitors required", result.total],
+                [`${revMetric === 'aov' ? 'Orders' : 'Visitors'} required per variant`, result.nPerArm],
+                [`Total ${revMetric === 'aov' ? 'orders' : 'visitors'} required`, result.total],
                 ["Estimated duration (days)", result.days],
                 ["Estimated duration (weeks)", result.weeks],
                 [],
                 ["Detectable uplift %", ...result.chart.map(c => c.mde ?? "")],
               ];
-              downloadBlob(toCsv(rows), `eclipse-plan-rev-${stamp()}.csv`, "text/csv");
+              downloadBlob(toCsv(rows), `eclipse-plan-${revMetric}-${stamp()}.csv`, "text/csv");
             }}
             onPdf={() => {
-              exportPdf("Revenue test planning", [
+              exportPdf(`${metricLabel} test planning`, [
                 { heading: "Setup", lines: [
                   `Coefficient of Variation (CV): ${cv}`,
                   `Minimum detectable effect (relative): ${mde}%`,
-                  `Visitors: ${traffic} ${period === "day" ? "per day" : period === "month" ? "per month" : "per week"}`,
+                  `${trafficLabel}: ${traffic} ${period === "day" ? "per day" : period === "month" ? "per month" : "per week"}`,
                   `Variants (incl. control): ${k}`,
                   `Confidence: ${Math.round(confidence*100)}%   Power: ${Math.round(power*100)}%   ${twoTailed ? "Two-tailed" : "One-tailed"}`,
                 ]},
                 { heading: "Results", lines: [
-                  `Visitors required per variant: ${fmtInt(result.nPerArm)}`,
-                  `Total visitors required: ${fmtInt(result.total)}`,
+                  `${revMetric === 'aov' ? 'Orders' : 'Visitors'} required per variant: ${fmtInt(result.nPerArm)}`,
+                  `Total ${revMetric === 'aov' ? 'orders' : 'visitors'} required: ${fmtInt(result.total)}`,
                   `Estimated duration: ${result.days} ${result.days === 1 ? "day" : "days"} (${result.weeks} ${result.weeks === 1 ? "week" : "weeks"})`,
                 ]},
                 { heading: "Detectable relative uplift by duration", lines:
@@ -1444,11 +1548,11 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower }) {
           <>
             <div className="stat-row">
               <div className="stat">
-                <div className="stat-label">Visitors per variant</div>
+                <div className="stat-label">{revMetric === 'aov' ? 'Orders' : 'Visitors'} per variant</div>
                 <div className="stat-num">{fmtInt(result.nPerArm)}</div>
               </div>
               <div className="stat">
-                <div className="stat-label">Total visitors</div>
+                <div className="stat-label">Total {revMetric === 'aov' ? 'orders' : 'visitors'}</div>
                 <div className="stat-num">{fmtInt(result.total)}</div>
               </div>
               <div className="stat stat-hero">
@@ -2296,7 +2400,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     let mismatch = null;
     if (convEntered && orderCount > 0 && orderCount !== convNum) {
       if (orderCount > convNum)
-        mismatch = `The file contains ${fmtInt(orderCount)} orders but ${fmtInt(convNum)} conversions are recorded above. This could mean a wrong date range, duplicate orders, or multiple purchases per visitor.`;
+        mismatch = `The file contains ${fmtInt(orderCount)} orders but ${fmtInt(convNum)} conversions are recorded above. This could mean a wrong date range, duplicate orders, or multiple orders per visitor.`;
       else
         mismatch = `The file contains ${fmtInt(orderCount)} orders but ${fmtInt(convNum)} conversions are recorded above. Some orders may be missing from the export, or your conversion definition doesn't map 1:1 to individual orders.`;
     }
@@ -2611,7 +2715,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
 
               <h3 className="sub-title"><Explainer id="aovrpv" inline label="Average order value" /></h3>
               <div className="aov-warning">
-                <strong>Important:</strong> Average order value only looks at people who made a purchase. 
+                <strong>Important:</strong> Average order value only looks at people who made an order. 
                 If you use AOV as your primary metric, you might declare a winner that actually loses you money 
                 (e.g. if conversion rate crashes while AOV rises).
               </div>
@@ -2691,6 +2795,7 @@ export default function EclipseCalculator() {
 
   const [mode, setMode] = useState("pre");
   const [preTab, setPreTab] = useState("cvr");
+  const [revMetric, setRevMetric] = useState("rpv");
   const [postTab, setPostTab] = useState("cvr");
   const [confidence, setConfidence] = useState(0.95);
   const [tails, setTails] = useState("two");
@@ -2789,22 +2894,20 @@ export default function EclipseCalculator() {
       </section>
 
       {mode === "pre" && (
-        <>
-          <nav className="sub-tabs" aria-label="Metric">
-            <button type="button" className={`subtab ${preTab === "cvr" ? "subtab-on" : ""}`}
-              aria-pressed={preTab === "cvr"} onClick={() => setPreTab("cvr")}>
-              Conversion rate
-            </button>
-            <button type="button" className={`subtab ${preTab === "revenue" ? "subtab-on" : ""}`}
-              aria-pressed={preTab === "revenue"} onClick={() => setPreTab("revenue")}>
-              Revenue per visitor
-            </button>
-          </nav>
-          {preTab === "cvr" 
-            ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} />
-            : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} />
-          }
-        </>
+        <div className="pre-planning-container" style={{ maxWidth: '1080px', margin: '24px auto 0' }}>
+          <MetricSelector 
+            preTab={preTab} 
+            setPreTab={setPreTab} 
+            revMetric={revMetric} 
+            setRevMetric={setRevMetric} 
+          />
+          <div style={{ marginTop: '24px' }}>
+            {preTab === "cvr" 
+              ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} />
+              : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} revMetric={revMetric} />
+            }
+          </div>
+        </div>
       )}
 
       {mode === "post" && (
@@ -2868,49 +2971,49 @@ const CSS = `
   --chart-tooltip-text:#1C1328;
 }
 [data-theme='dark'] {
-  --paper:#09090B; --card:#18181B; --ink:#FAFAFA; --muted:#D4D4D8;
-  --line:#3F3F46;
-  --pink:#FF1A6A; --pink-deep:#FDA4AF; --pink-soft:#4C0519;
-  --grey-disabled:#27272A; --text-disabled:#A1A1AA;
-  --purple:#A5B4FC; --purple-deep:#E0E7FF; --purple-soft:#312E81;
+  --paper:#121212; --card:#1E1E1E; --ink:rgba(255,255,255,0.87); --muted:rgba(255,255,255,0.60);
+  --line:#383838;
+  --pink:#E54D7A; --pink-deep:#FDA4AF; --pink-soft:#4C0519;
+  --grey-disabled:#2A2A2A; --text-disabled:#71717A;
+  --purple:#94A3E8; --purple-deep:#E0E7FF; --purple-soft:#2D2A70;
   --purple-bright:#818CF8; --avatar:#4338CA;
-  --purple-active:#4338CA;
-  --navy:#FAFAFA; --amber:#FBBF24;
+  --purple-active:#5A51D6;
+  --navy:rgba(255,255,255,0.95); --amber:#FBBF24;
   --win:#34D399; --win-bg:#064E3B; --lose:#F87171; --lose-bg:#450A0A;
-  --ns:#D4D4D8; --ns-bg:#27272A; --warn-bg:#422006; --warn-edge:#FBBF24;
-  --shadow:0 1px 3px rgba(0,0,0,.5), 0 20px 40px -12px rgba(0,0,0,.7);
-  --chart-grid:#3F3F46;
-  --chart-tick:#E4E4E7;
-  --chart-line:#C4B5FD;
-  --chart-dot:#FDA4AF;
-  --chart-dot-stroke:#18181B;
-  --chart-control:#D4D4D8;
-  --chart-tooltip-bg:#27272A;
-  --chart-tooltip-border:#52525B;
-  --chart-tooltip-text:#FAFAFA;
+  --ns:rgba(255,255,255,0.60); --ns-bg:#333333; --warn-bg:#422006; --warn-edge:#FBBF24;
+  --shadow:0 4px 12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+  --chart-grid:#383838;
+  --chart-tick:rgba(255,255,255,0.45);
+  --chart-line:#94A3E8;
+  --chart-dot:#E54D7A;
+  --chart-dot-stroke:#1E1E1E;
+  --chart-control:rgba(255,255,255,0.60);
+  --chart-tooltip-bg:#1E1E1E;
+  --chart-tooltip-border:#444444;
+  --chart-tooltip-text:rgba(255,255,255,0.87);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --paper:#0F0D15; --card:#16121E; --ink:#FAFAFA; --muted:#D4D4D8;
-    --line:#3F3F46;
-    --pink:#FF1A6A; --pink-deep:#FDA4AF; --pink-soft:#4C0519;
-    --grey-disabled:#2D2638; --text-disabled:#A1A1AA;
-    --purple:#A5B4FC; --purple-deep:#E0E7FF; --purple-soft:#312E81;
+    --paper:#121212; --card:#1E1E1E; --ink:rgba(255,255,255,0.87); --muted:rgba(255,255,255,0.60);
+    --line:#383838;
+    --pink:#E54D7A; --pink-deep:#FDA4AF; --pink-soft:#4C0519;
+    --grey-disabled:#2A2A2A; --text-disabled:#71717A;
+    --purple:#94A3E8; --purple-deep:#E0E7FF; --purple-soft:#2D2A70;
     --purple-bright:#818CF8; --avatar:#4338CA;
-    --purple-active:#4338CA;
-    --navy:#FAFAFA; --amber:#F1C40F;
+    --purple-active:#5A51D6;
+    --navy:rgba(255,255,255,0.95); --amber:#F1C40F;
     --win:#34D399; --win-bg:#122B1E; --lose:#F87171; --lose-bg:#3D1414;
-    --ns:#D4D4D8; --ns-bg:#27272A; --warn-bg:#2D2605; --warn-edge:#F1C40F;
-    --shadow:0 1px 2px rgba(0,0,0,.3), 0 10px 30px -12px rgba(0,0,0,.5);
-    --chart-grid:#3F3F46;
-    --chart-tick:#E4E4E7;
-    --chart-line:#C4B5FD;
-    --chart-dot:#FDA4AF;
-    --chart-dot-stroke:#16121E;
-    --chart-control:#D4D4D8;
-    --chart-tooltip-bg:#27272A;
-    --chart-tooltip-border:#52525B;
-    --chart-tooltip-text:#FAFAFA;
+    --ns:rgba(255,255,255,0.60); --ns-bg:#333333; --warn-bg:#2D2605; --warn-edge:#F1C40F;
+    --shadow:0 4px 12px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.05);
+    --chart-grid:#383838;
+    --chart-tick:rgba(255,255,255,0.45);
+    --chart-line:#94A3E8;
+    --chart-dot:#E54D7A;
+    --chart-dot-stroke:#1E1E1E;
+    --chart-control:rgba(255,255,255,0.60);
+    --chart-tooltip-bg:#1E1E1E;
+    --chart-tooltip-border:#444444;
+    --chart-tooltip-text:rgba(255,255,255,0.87);
   }
 }
 .app{font-family:'Inter',ui-sans-serif,system-ui,sans-serif;background:var(--paper);color:var(--ink);
@@ -2919,6 +3022,7 @@ const CSS = `
   font-feature-settings:'cv11' 1;overflow-x:hidden;}
 .app *{box-sizing:border-box;}
 .app :focus-visible{outline:3px solid var(--pink);outline-offset:2px;border-radius:6px;}
+[data-theme='dark'] .app :focus-visible{outline-color:var(--purple-bright);}
 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0 0 0 0);white-space:nowrap;border:0;}
 .num,.stat-num,.mini-table td,.cvr-readout{font-variant-numeric:tabular-nums;
@@ -2926,46 +3030,63 @@ const CSS = `
 
 /* masthead */
 .masthead{max-width:1080px;margin:0 auto;padding-top:30px;}
+[data-theme='dark'] .brand-word{color:var(--purple-bright);}
 .mast-inner{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
 .brand{display:flex;align-items:center;gap:9px;}
-.brand-mark{display:block;flex:none;}
-.brand-word{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:30px;color:var(--pink);
-  letter-spacing:-0.03em;line-height:1.2;}
+.brand-mark{display:block;flex:none;object-fit:contain;}
+.brand-word{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:26px;color:var(--pink);
+  letter-spacing:-0.03em;line-height:1;text-transform:lowercase;}
+[data-theme='dark'] .brand-word{color:var(--pink);}
 .tagline{color:var(--muted);font-size:15px;padding-top:6px;}
+[data-theme='dark'] .tagline{color:var(--muted);}
 .intro{max-width:1080px;margin:20px auto 0;text-align:left;}
 .page-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:28px;
   line-height:1.2;letter-spacing:-0.03em;color:var(--navy);margin:0 0 10px;}
+[data-theme='dark'] .page-title{color:var(--navy);}
 .intro-text{color:var(--muted);font-size:16px;line-height:1.55;margin:0;max-width:65ch;}
+[data-theme='dark'] .intro-text{color:var(--muted);}
 .theme-toggle{background:var(--card);border:1.5px solid var(--line);border-radius:10px;
   width:40px;height:40px;display:flex;align-items:center;justify-content:center;
   cursor:pointer;color:var(--purple);transition:all .15s;box-shadow:var(--shadow);}
+[data-theme='dark'] .theme-toggle{color:var(--purple-bright);}
 .theme-toggle:hover{border-color:var(--purple);background:var(--purple-soft);}
+[data-theme='dark'] .theme-toggle:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
 
 /* tabs */
 .mode-tabs{max-width:1080px;margin:26px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;}
 .tab{text-align:left;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);padding:16px 20px;cursor:pointer;box-shadow:var(--shadow);
-  font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:17px;color:var(--ink);line-height:1.2;}
+  font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:17px;color:var(--ink);line-height:1.2;transition:all .15s;}
+.tab:hover{border-color:var(--purple);background:var(--purple-soft);}
+[data-theme='dark'] .tab:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
 @media (max-width:880px){
   .mode-tabs{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;}
   .tab{flex:1;min-width:0;width:100%;padding:12px 16px;}
 }
+.tab:hover{border-color:var(--purple);background:var(--purple-soft);}
+[data-theme='dark'] .tab:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
 .tab-sub{display:block;font-family:'Inter',sans-serif;font-weight:400;
   font-size:13px;color:var(--muted);margin-top:3px;}
+[data-theme='dark'] .tab-sub{color:var(--muted);}
 .tab-on{border-color:transparent;background:var(--grad);color:#fff;}
+[data-theme='dark'] .tab-on{background:var(--purple-bright);color:var(--navy);border-color:transparent;}
 .tab-on .tab-sub{color:rgba(255,255,255,.85);}
+[data-theme='dark'] .tab-on .tab-sub{color:rgba(0,0,0,0.6);}
 .sub-tabs{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;}
 .subtab{background:var(--card);border:1px solid var(--line);border-radius:999px;
   padding:9px 16px;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;
-  font-family:'Inter',sans-serif;box-shadow:var(--shadow);white-space:nowrap;text-align:center;}
+  font-family:'Inter',sans-serif;box-shadow:var(--shadow);white-space:nowrap;text-align:center;transition:all .15s;}
+.subtab:hover{border-color:var(--pink);background:var(--pink-soft);}
+[data-theme='dark'] .subtab:hover{border-color:var(--pink);background:rgba(255,255,255,0.05);}
 @media (max-width:880px){
   .sub-tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;}
   .sub-tabs::-webkit-scrollbar{display:none;}
   .subtab{flex:1;padding:8px 12px;font-size:12.5px;}
 }
 .subtab-on{border-color:var(--pink);background:var(--pink-soft);color:var(--pink-deep);}
-[data-theme='dark'] .subtab-on,[data-theme='dark'] .subtab-on:focus-visible{
-  border-color:var(--pink-deep);background:var(--pink-soft);color:var(--pink-deep);}
+[data-theme='dark'] .subtab-on{border-color:var(--pink);background:var(--pink-soft);color:var(--pink-deep);box-shadow:0 0 0 1px var(--pink);}
+[data-theme='dark'] .subtab-on:focus-visible{
+  border-color:var(--pink);background:var(--pink-soft);color:var(--pink-deep);}
 .subtab-on:focus-visible{outline-color:var(--pink);}
 
 /* settings */
@@ -2974,13 +3095,19 @@ const CSS = `
   flex-wrap:wrap;align-items:flex-start;justify-content:flex-start;}
 .seg{border:0;padding:0;margin:0;display:flex;flex-direction:column;align-items:flex-start;}
 .seg-legend{font-weight:600;font-size:13.5px;margin-bottom:7px;padding:0;text-align:left;}
+[data-theme='dark'] .seg-legend{color:var(--ink);}
 .seg-row{display:inline-flex;background:var(--paper);border:1px solid var(--line);
   border-radius:999px;padding:3px;flex-wrap:wrap;}
+[data-theme='dark'] .seg-row{background:var(--paper);border-color:var(--line);}
 .seg-opt{padding:6px 16px;font-size:14px;cursor:pointer;color:var(--muted);
-  border-radius:999px;display:flex;align-items:center;font-weight:600;position:relative;}
+  border-radius:999px;display:flex;align-items:center;font-weight:600;position:relative;transition:all .15s;}
+[data-theme='dark'] .seg-opt{color:var(--muted);}
+.seg-opt:hover{background:var(--purple-soft);}
+[data-theme='dark'] .seg-opt:hover{background:rgba(255,255,255,0.05);}
 .seg-opt input{position:absolute;opacity:0;pointer-events:none;}
 .seg-opt:has(:focus-visible){outline:3px solid var(--pink);outline-offset:1px;}
 .seg-on{background:var(--purple-active);color:#fff;}
+[data-theme='dark'] .seg-on{background:var(--purple-bright);color:var(--navy);box-shadow:0 0 0 1px var(--purple-bright);}
 
 /* layout */
 .two-col{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;align-items:start;}
@@ -2993,26 +3120,33 @@ const CSS = `
 }
 .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   box-shadow:var(--shadow);padding:22px 24px;min-width:0;max-width:100%;}
+[data-theme='dark'] .panel{background:var(--card);border-color:var(--line);}
 @media (max-width:600px){
   .panel{padding:16px 12px;border-radius:0;border-inline:0;}
 }
 .panel-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:20px;margin:0 0 14px;color:var(--navy);letter-spacing:-0.025em;line-height:1.2;}
+[data-theme='dark'] .panel-title{color:var(--ink);}
 .results-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
   flex-wrap:wrap;}
 .results-head .panel-title{margin-bottom:8px;}
 .brand-logo{display:block;}
+[data-theme='dark'] .brand-logo path{fill:var(--pink);}
 .export-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px;}
 .btn-export{display:inline-flex;align-items:center;gap:6px;background:var(--card);
   border:1.5px solid var(--line);border-radius:9px;padding:6px 14px;font-size:13px;font-weight:600;
   color:var(--purple-deep);cursor:pointer;font-family:'Inter',sans-serif;}
+[data-theme='dark'] .btn-export{color:var(--purple-bright);}
 .btn-export:hover{border-color:var(--purple);background:var(--purple-soft);}
+[data-theme='dark'] .btn-export:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
 .btn-export:disabled{opacity:.5;cursor:wait;}
 .export-err{font-size:12.5px;color:var(--lose);}
 .detail-wrap{margin:6px 0 12px;}
 .detail-toggle{display:inline-flex;align-items:center;gap:7px;background:none;border:0;padding:4px 0;
   color:var(--purple);font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;}
+[data-theme='dark'] .detail-toggle{color:var(--purple-bright);}
 .detail-card{margin-top:10px;background:var(--paper);border:1px solid var(--line);
   border-radius:12px;padding:14px 16px;min-width:0;}
+[data-theme='dark'] .detail-card{background:var(--paper);border-color:var(--line);}
 .detail-table-wrap{overflow-x:auto;margin:0 -16px;padding:0 16px;scrollbar-width:thin;}
 .detail-table{width:100%;border-collapse:collapse;font-size:12px;
   font-variant-numeric:tabular-nums;}
@@ -3030,27 +3164,71 @@ const CSS = `
 }
 .detail-table th,.detail-table td{border:1px solid var(--line);padding:6px 8px;text-align:right;
   white-space:nowrap;}
+[data-theme='dark'] .detail-table td{color:var(--ink);}
 .detail-table thead th{background:var(--card);font-weight:600;color:var(--muted);text-align:right;}
+[data-theme='dark'] .detail-table thead th{background:var(--paper);}
 .detail-table tbody th{text-align:left;font-weight:600;color:var(--navy);}
+[data-theme='dark'] .detail-table tbody th{color:var(--ink);}
 .detail-formula{font-size:11.5px;color:var(--muted);margin:10px 0 0;line-height:1.6;}
+[data-theme='dark'] .detail-formula{color:var(--muted);}
 .btn-text{background:none;border:0;padding:0;color:var(--purple);font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin:4px 0 12px;}
+[data-theme='dark'] .btn-text{color:var(--purple-bright);}
 .btn-text:hover{text-decoration:underline;}
+.badge-soon{display:block;width:fit-content;background:var(--purple-soft);color:var(--purple);
+  font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-top:4px;
+  text-transform:uppercase;letter-spacing:0.02em;}
+[data-theme='dark'] .badge-soon{background:var(--purple-soft);color:var(--purple-bright);border:1px solid var(--purple-bright);}
+.animated-fade-in{animation:fadeIn .3s ease-out;}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
+.choice-row{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
+.choice-opt{flex:1;min-width:140px;background:var(--card);border:1.5px solid var(--line);
+  border-radius:12px;padding:14px;cursor:pointer;transition:all .15s;text-align:left;position:relative;
+  font-family:inherit;}
+.choice-opt:hover{border-color:var(--purple);background:var(--purple-soft);}
+[data-theme='dark'] .choice-opt:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
+.choice-opt-on{border-color:var(--purple);background:var(--purple-soft);box-shadow:0 0 0 1px var(--purple);}
+[data-theme='dark'] .choice-opt-on{background:var(--purple-soft);border-color:var(--purple-bright);box-shadow:0 0 0 1px var(--purple-bright);}
+.choice-title{display:block;font-weight:600;font-size:14px;color:var(--navy);margin-bottom:4px;}
+.choice-desc{display:block;font-size:12.5px;color:var(--muted);line-height:1.4;}
+.choice-disabled{opacity:0.7;cursor:not-allowed;}
+.choice-disabled:hover{border-color:var(--line);}
+.flow-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;
+  font-size:18px;margin:0 0 16px;color:var(--navy);letter-spacing:-0.02em;}
+[data-theme='dark'] .flow-title{color:var(--ink);}
+.metric-selector-flow{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+  padding:24px;box-shadow:var(--shadow);margin-bottom:0;}
+[data-theme='dark'] .metric-selector-flow{background:var(--card);border-color:var(--line);}
+.pre-planning-container .two-col{margin-top:0;}
+.coming-soon-placeholder{margin-bottom:24px;padding:16px;background:var(--paper);border:1px dashed var(--line);border-radius:12px;}
+[data-theme='dark'] .coming-soon-placeholder{background:var(--paper);border-color:var(--line);}
+.upload-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:10px;padding:30px;border:2px dashed var(--line);border-radius:12px;color:var(--muted);
+  font-size:14px;background:var(--card);transition:all .15s;}
+[data-theme='dark'] .upload-placeholder{background:var(--paper);border-color:var(--line);}
+.upload-placeholder svg{color:var(--purple);opacity:0.6;}
+[data-theme='dark'] .upload-placeholder svg{color:var(--purple-bright);opacity:0.8;}
 .sd-calc-section{margin-bottom:20px;}
 .sd-calc-box{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:8px;}
+[data-theme='dark'] .sd-calc-box{background:var(--paper);border-color:var(--line);}
 .sd-result .stat{padding:10px;background:var(--card);}
+[data-theme='dark'] .sd-result .stat{background:var(--paper);border-color:var(--line);}
 .sd-result .stat-num{font-size:18px;}
 
 .btn-calc{width:100%;background:var(--pink);color:#fff;border:0;border-radius:11px;
   padding:13px 20px;font-size:15.5px;font-weight:700;cursor:pointer;margin-top:18px;
-  font-family:'Inter',sans-serif;letter-spacing:.01em;}
-.btn-calc:hover{background:var(--pink-deep);}
+  font-family:'Inter',sans-serif;letter-spacing:.01em;transition:all .15s;}
+.btn-calc:hover{background:var(--pink-deep);transform:translateY(-1px);}
+[data-theme='dark'] .btn-calc{background:var(--purple-bright);color:var(--navy);}
+[data-theme='dark'] .btn-calc:hover{filter:brightness(1.1);transform:translateY(-1px);}
 .btn-calc:disabled{background:var(--grey-disabled);color:var(--text-disabled);cursor:not-allowed;}
+[data-theme='dark'] .btn-calc:disabled{background:var(--grey-disabled);color:var(--text-disabled);}
 .test-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;}
 .test-pill{font-size:12px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
   border:1px solid var(--line);border-radius:999px;padding:4px 12px;white-space:nowrap;}
-[data-theme='dark'] .test-pill{border-color:var(--purple-active);}
+[data-theme='dark'] .test-pill{color:var(--purple-deep);background:var(--purple-soft);border-color:var(--purple-bright);}
 .test-chip{font-size:12.5px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
   border:1px solid var(--line);border-radius:999px;padding:5px 14px;white-space:nowrap;}
+[data-theme='dark'] .test-chip{color:var(--purple-deep);background:var(--purple-soft);border-color:var(--purple-bright);}
 .sub-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:16px;line-height:1.5;
   margin:24px 0 6px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
 .empty{color:var(--muted);}
@@ -3064,19 +3242,28 @@ const CSS = `
   font-size:13.5px;padding:7px 11px;border-radius:0 8px 8px 0;margin-top:7px;}
 .input{width:100%;max-width:220px;border:1.5px solid var(--line);border-radius:10px;
   padding:10px 13px;font-size:15.5px;font-family:'Inter',sans-serif;color:var(--ink);
-  background:var(--paper);font-feature-settings:'tnum' 1;}
-.input:focus-visible{border-color:var(--purple);}
+  background:var(--card);font-feature-settings:'tnum' 1;}
+.input.select{max-width:320px;}
+[data-theme='dark'] .input{background:var(--paper);border-color:var(--line);}
+.input:focus-visible{border-color:var(--purple);outline:0;box-shadow:0 0 0 3px var(--purple-soft);}
+[data-theme='dark'] .input:focus-visible{border-color:var(--purple-bright);box-shadow:0 0 0 3px var(--purple-soft);}
 .input::placeholder{color:var(--muted);font-style:normal;}
 .input::-webkit-outer-spin-button,.input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
 .input[type=number]{-moz-appearance:textfield;appearance:textfield;}
 .input-k{max-width:76px;text-align:center;}
 .stepper{display:flex;align-items:center;gap:8px;}
 .btn-step{width:40px;height:40px;border-radius:10px;border:1.5px solid var(--line);
-  background:var(--card);font-size:20px;cursor:pointer;color:var(--purple);}
+  background:var(--card);font-size:20px;cursor:pointer;color:var(--purple);transition:all .15s;}
+[data-theme='dark'] .btn-step{color:var(--purple-bright);background:var(--paper);border-color:var(--line);}
+.btn-step:hover{border-color:var(--purple);background:var(--purple-soft);}
+[data-theme='dark'] .btn-step:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
 .btn-step:disabled{opacity:.35;cursor:not-allowed;}
+[data-theme='dark'] .btn-step:disabled{opacity:.2;}
 .btn{background:var(--pink);color:#fff;border:0;border-radius:10px;padding:11px 20px;
-  font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;}
+  font-size:15px;font-weight:700;cursor:pointer;font-family:'Inter',sans-serif;transition:all .15s;}
+[data-theme='dark'] .btn{background:var(--purple-bright);color:var(--navy);}
 .btn:hover{background:var(--pink-deep);}
+[data-theme='dark'] .btn:hover{filter:brightness(1.1);}
 .upload-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 6px;align-items:center;}
 .file-name{font-size:13px;color:var(--muted);}
 .outlier-wrap{margin:12px 0 24px;}
@@ -3086,19 +3273,24 @@ const CSS = `
 .outlier-note .outlier-header{margin-bottom:8px;}
 .check-row{display:flex;gap:9px;align-items:flex-start;font-size:14px;margin-top:8px;cursor:pointer;}
 .check-row input{margin-top:3px;width:16px;height:16px;accent-color:var(--pink);}
+[data-theme='dark'] .check-row input{accent-color:var(--purple-bright);}
 .format-card{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:6px 0 4px;}
 .format-title{font-size:12.5px;font-weight:600;color:var(--muted);background:var(--paper);
   padding:7px 12px;border-bottom:1px solid var(--line);}
+[data-theme='dark'] .format-title{background:var(--paper);color:var(--muted);}
 .format-pre{margin:0;padding:10px 12px;font-size:13px;line-height:1.6;
   font-family:ui-monospace,Menlo,monospace;color:var(--ink);background:var(--paper);}
+[data-theme='dark'] .format-pre{background:var(--paper);color:var(--ink);}
 
 /* variants & allocation */
 .arm-row{border-top:1px dashed var(--line);padding-top:14px;margin-top:14px;}
 .arm-name{font-size:15px;font-weight:600;margin:0 0 10px;color:var(--navy);display:flex;align-items:center;gap:9px;
   font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;line-height:1.5;}
+[data-theme='dark'] .arm-name{color:var(--ink);}
 .arm-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
 @media (max-width:560px){.arm-grid{grid-template-columns:1fr;gap:8px;}}
 .cvr-readout{display:block;padding:10px 0;font-size:15.5px;font-weight:600;}
+[data-theme='dark'] .cvr-readout{color:var(--ink);}
 .alloc-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:12px;}
 .alloc-cell{min-width:0;}
 .alloc-cell .field-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
@@ -3108,41 +3300,60 @@ const CSS = `
 .explainer{position:relative;display:inline-flex;align-items:center;line-height:1;}
 .explainer-inline{margin:0 0 0 4px;}
 .explainer-toggle{background:none;border:0;padding:0;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;font-size:inherit;font-weight:inherit;color:inherit;text-align:left;}
+[data-theme='dark'] .explainer-toggle{color:var(--ink);}
 .explainer-label-text{text-decoration:underline dotted var(--muted);text-underline-offset:3px;}
+[data-theme='dark'] .explainer-label-text{text-decoration-color:var(--muted);}
 .exp-ring{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
   background:var(--purple-soft);border:1px solid var(--line);border-radius:50%;font-size:10px;
   flex:none;color:var(--purple);font-weight:700;line-height:1;margin-top:-1px;}
+[data-theme='dark'] .exp-ring{background:var(--purple-soft);color:var(--purple-deep);border-color:var(--purple-bright);}
 .explainer-body{position:fixed;z-index:1000;background:var(--card);
   border:1px solid var(--line);padding:14px 16px;font-size:13.5px;border-radius:12px;
   box-shadow:var(--shadow);width:260px;color:var(--ink);text-align:left;
   max-width:calc(100vw - 24px);}
+[data-theme='dark'] .explainer-body{background:var(--card);border-color:var(--line);box-shadow:0 8px 32px rgba(0,0,0,0.8);}
 @media (max-width:480px){.explainer-body{width:220px;}}
 .exp-title{font-weight:700;margin-bottom:6px;color:var(--navy);font-size:14px;}
+[data-theme='dark'] .exp-title{color:var(--purple-bright);}
 .exp-lead{margin:0 0 8px;line-height:1.4;}
+[data-theme='dark'] .exp-lead{color:var(--ink);}
 .exp-bullets{margin:0 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:5px;line-height:1.4;}
 .exp-bullets li{padding-left:2px;}
 .exp-foot{margin:8px 0 0;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;}
+[data-theme='dark'] .exp-foot{color:var(--muted);}
 
 /* fields */
 .field{margin:0 0 20px;}
 .field-label-row{display:flex;align-items:center;gap:6px;margin-bottom:6px;font-weight:600;font-size:13.5px;color:var(--ink);}
+[data-theme='dark'] .field-label-row{color:var(--ink);}
 .field-label{display:block;font-weight:600;font-size:13.5px;margin:0;}
-.field-hint{color:var(--muted);font-size:13.5px;margin:-2px 0 8px;max-width:58ch;text-align:left;}
+.field-hint{color:var(--muted);font-size:13.5px;margin:4px 0 8px;max-width:58ch;text-align:left;}
+[data-theme='dark'] .field-hint{color:var(--muted);}
 
 /* results */
 .stat-row{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0 10px;}
 .stat{flex:1;background:var(--paper);border:1px solid var(--line);
   border-radius:12px;padding:14px 16px;min-width:0;word-break:break-word;}
+[data-theme='dark'] .stat{background:var(--paper);border-color:var(--line);}
 @media (max-width:600px){
   .stat-row{display:grid;grid-template-columns:1fr;gap:10px;}
   .stat{min-width:0;width:100%;padding:12px 10px;}
 }
 .stat-hero{background:var(--grad);border-color:transparent;color:#fff;}
+[data-theme='dark'] .stat-hero{background:var(--purple-bright);color:var(--navy);}
+[data-theme='dark'] .stat-hero{background:var(--purple-bright);color:var(--navy);}
 .stat-hero .stat-label{color:rgba(255,255,255,.85);}
+[data-theme='dark'] .stat-hero .stat-label{color:rgba(0,0,0,0.6);}
+[data-theme='dark'] .stat-hero .stat-label{color:rgba(0,0,0,0.7);}
 .stat-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
   color:var(--muted);margin-bottom:5px;}
+[data-theme='dark'] .stat-label{color:var(--muted);}
 .stat-num{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:24px;font-weight:600;line-height:1.2;}
+[data-theme='dark'] .stat-num{color:var(--ink);}
+[data-theme='dark'] .stat-hero .stat-num{color:var(--navy);}
 .stat-sub-label{font-size:14px;opacity:0.9;margin-top:2px;}
+[data-theme='dark'] .stat-sub-label{color:var(--muted);}
+[data-theme='dark'] .stat-hero .stat-sub-label{color:rgba(0,0,0,0.6);}
 @media (max-width:600px){.stat-num{font-size:20px;}}
 
 .sub-title-row{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:24px 0 6px;flex-wrap:wrap;}
@@ -3157,16 +3368,21 @@ const CSS = `
   border-radius:0 10px 10px 0;font-size:14px;margin:12px 0;color:var(--ink);}
 .chart-wrap{margin:6px 0 4px;min-width:0;width:100%;overflow:hidden;}
 .chart-caption{font-size:13px;color:var(--muted);margin:8px 0 0;line-height:1.45;}
+[data-theme='dark'] .chart-caption{color:var(--muted);}
 .faq-section{max-width:1080px;margin:40px auto 0;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);box-shadow:var(--shadow);padding:28px 24px;text-align:left;}
+[data-theme='dark'] .faq-section{background:var(--card);border-color:var(--line);}
 .faq-heading{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:22px;
   margin:0 0 20px;color:var(--navy);letter-spacing:-0.02em;}
+[data-theme='dark'] .faq-heading{color:var(--ink);}
 .faq-list{display:flex;flex-direction:column;gap:20px;}
 .faq-item{border-top:1px solid var(--line);padding-top:18px;}
 .faq-item:first-child{border-top:0;padding-top:0;}
 .faq-q{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:16px;font-weight:600;
   margin:0 0 8px;color:var(--ink);line-height:1.35;}
+[data-theme='dark'] .faq-q{color:var(--purple-bright);}
 .faq-a{margin:0;color:var(--muted);font-size:15px;line-height:1.55;max-width:70ch;}
+[data-theme='dark'] .faq-a{color:var(--muted);}
 @media (max-width:600px){
   .faq-section{padding:20px 16px;border-radius:0;border-inline:0;}
   .page-title{font-size:24px;}
@@ -3285,6 +3501,7 @@ const CSS = `
 .srm-detail{font-weight:400;color:var(--muted);}
 .srm-bad{background:var(--lose-bg);border:1px solid #EFC4C0;border-radius:14px;
   padding:14px 16px;font-size:14px;margin:4px 0 14px;}
+[data-theme='dark'] .srm-bad{border-color:var(--lose);color:var(--ink);}
 .srm-bad p{margin:7px 0 6px;}
 .dimmed{opacity:.55;}
 
@@ -3301,13 +3518,17 @@ const CSS = `
 .select{max-width:130px;cursor:pointer;}
 @media (max-width:600px){.select{max-width:100%;font-size:16px;}}
 .derived-line{font-size:13px;color:var(--muted);margin-top:6px;}
+[data-theme='dark'] .derived-line{color:var(--muted);}
 .derived-line strong{color:var(--purple-deep);}
+[data-theme='dark'] .derived-line strong{color:var(--purple-bright);}
 .rev-top-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;}
 .aov-warning{background:var(--warn-bg);border-left:3px solid var(--warn-edge);padding:12px 16px;
   border-radius:0 10px 10px 0;font-size:13.5px;margin:10px 0 16px;color:var(--ink);line-height:1.5;}
+[data-theme='dark'] .aov-warning{color:var(--ink);}
 .aov-warning strong{color:var(--warn-edge);}
 .mismatch-warn{background:#FFF6E8;border-left:3px solid #C97B12;border-radius:0 10px 10px 0;
   padding:10px 13px;font-size:13.5px;margin:8px 0;}
+[data-theme='dark'] .mismatch-warn{background:var(--warn-bg);border-color:var(--warn-edge);color:var(--ink);}
 
 /* upload zone */
 .upload-zone{margin:10px 0 6px;}
