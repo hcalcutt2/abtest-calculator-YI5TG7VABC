@@ -366,6 +366,7 @@ async function exportPdf(title, sections) {
   const nl = (h) => { y += h; if (y > page.getHeight() - M) { doc.addPage(); y = M; } };
 
   // Draw Logo using the actual SVG from the page
+  try {
     const pink = getComputedStyle(document.documentElement).getPropertyValue('--pink').trim() || '#DC004A';
     
     // Use stylized text for PDF logo
