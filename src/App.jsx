@@ -868,8 +868,8 @@ function SegControl({ legend, options, value, onChange, name, explainerId }) {
 
 function EclipseWordmark() {
   return (
-    <div className="brand" role="img" aria-label="Eclipse">
-      <img src="/favicon.png" alt="" width="32" height="32" className="brand-mark" />
+    <div className="brand">
+      <img src="./brand-icon.png" alt="Eclipse" className="brand-mark" />
       <span className="brand-word">eclipse</span>
     </div>
   );
@@ -3031,10 +3031,9 @@ const CSS = `
 
 /* masthead */
 .masthead{max-width:1080px;margin:0 auto;padding-top:30px;}
-[data-theme='dark'] .brand-word{color:var(--purple-bright);}
 .mast-inner{display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
-.brand{display:flex;align-items:center;gap:9px;}
-.brand-mark{display:block;flex:none;object-fit:contain;}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;}
+.brand-mark{display:block;width:32px;height:32px;min-width:32px;min-height:32px;flex:none;object-fit:contain;}
 .brand-word{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:26px;color:var(--pink);
   letter-spacing:-0.03em;line-height:1;text-transform:lowercase;}
 [data-theme='dark'] .brand-word{color:var(--pink);}
@@ -3130,8 +3129,6 @@ const CSS = `
 .results-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
   flex-wrap:wrap;}
 .results-head .panel-title{margin-bottom:8px;}
-.brand-logo{display:block;}
-[data-theme='dark'] .brand-logo path{fill:var(--pink);}
 .export-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px;}
 .btn-export{display:inline-flex;align-items:center;gap:6px;background:var(--card);
   border:1.5px solid var(--line);border-radius:9px;padding:6px 14px;font-size:13px;font-weight:600;
