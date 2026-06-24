@@ -850,19 +850,172 @@ function SegControl({ legend, options, value, onChange, name, explainerId }) {
     <Field label={legend} explainerId={explainerId}>
       <div className="seg-row" role="radiogroup" aria-label={legend}>
         {options.map((o) => (
-          <label key={o.value} className={`seg-opt ${value === o.value ? "seg-on" : ""}`}>
+          <label key={o.value} className={`seg-opt ${value === o.value ? "seg-on" : ""}${o.disabled ? " seg-disabled" : ""}`}>
             <input
               type="radio"
               name={name}
               value={o.value}
               checked={value === o.value}
-              onChange={() => onChange(o.value)}
+              disabled={o.disabled}
+              onChange={() => !o.disabled && onChange(o.value)}
             />
             {o.label}
           </label>
         ))}
       </div>
     </Field>
+  );
+}
+
+function TestSettings({
+  mode,
+  confidence, setConfidence,
+  power, setPower,
+  tails, setTails,
+  onTailsManualChange,
+  blockTwoTailed = false,
+  blockOneTailed = false,
+}) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
+  const handleTailsChange = (val) => {
+    if (blockTwoTailed && val === "two") return;
+    if (blockOneTailed && val === "one") return;
+    onTailsManualChange?.();
+    setTails(val);
+  };
+
+  return (
+    <div className="test-settings">
+      <h3 className="block-title test-settings-title">Test settings</h3>
+      <SegControl
+        legend="Confidence level"
+        name="conf"
+        value={confidence}
+        onChange={setConfidence}
+        explainerId="confidence"
+        options={[
+          { value: 0.9, label: "90%" },
+          { value: 0.95, label: "95%" },
+          { value: 0.99, label: "99%" },
+        ]}
+      />
+      {mode === "pre" && (
+        <SegControl
+          legend="Statistical power"
+          name="power"
+          value={power}
+          onChange={setPower}
+          explainerId="power"
+          options={[
+            { value: 0.7, label: "70%" },
+            { value: 0.8, label: "80%" },
+            { value: 0.9, label: "90%" },
+          ]}
+        />
+      )}
+      <div className="test-settings-advanced">
+        <button type="button" className="btn-text" onClick={() => setAdvancedOpen((o) => !o)} aria-expanded={advancedOpen}>
+          {advancedOpen ? "− Hide advanced" : "+ Advanced"}
+        </button>
+        {advancedOpen && (
+          <div className="animated-fade-in">
+            <SegControl
+              legend="Tails"
+              name="tails-adv"
+              value={tails}
+              onChange={handleTailsChange}
+              explainerId="tailed"
+              options={[
+                { value: "two", label: "Two-tailed", disabled: blockTwoTailed },
+                { value: "one", label: "One-tailed", disabled: blockOneTailed },
+              ]}
+            />
+            {blockTwoTailed && (
+              <p className="field-hint">Your chosen intent uses a one-sided test — two-tailed is not available.</p>
+            )}
+            {blockOneTailed && (
+              <p className="field-hint">Your chosen intent uses a two-sided test — one-tailed is not available.</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TestIntent({ intent, setIntent, goal, setGoal, marginPct, setMarginPct }) {
+  return (
+    <div className="test-intent">
+      <SegControl
+        legend="What do you want to know?"
+        name="test-intent"
+        value={intent}
+        onChange={setIntent}
+        options={[
+          { value: "better", label: "Is the variant better?" },
+          { value: "different", label: "Is the variant different?" },
+          { value: "notworse", label: "Is the variant not worse?" },
+        ]}
+      />
+      {intent === "better" && (
+        <SegControl
+          legend="Which direction counts as a win?"
+          name="goal-better"
+          value={goal}
+          onChange={setGoal}
+          options={[
+            { value: "increase", label: "Increase is a winner" },
+            { value: "decrease", label: "Decrease is a winner" },
+          ]}
+        />
+      )}
+      {intent === "different" && (
+        <SegControl
+          legend="Which direction should we label as a winner?"
+          name="goal-different"
+          value={goal}
+          onChange={setGoal}
+          options={[
+            { value: "increase", label: "Increase is a winner" },
+            { value: "decrease", label: "Decrease is a winner" },
+          ]}
+        />
+      )}
+      {intent === "notworse" && (
+        <Field label="Acceptable non-inferiority margin (relative drop, %)" htmlFor="cvr-margin"
+          explainerId="noninf"
+          hint="Example: 1% means you'll accept the variant as long as it isn't more than 1% below control.">
+          <input id="cvr-margin" className="input" type="number" min="0" step="0.1"
+            value={marginPct} onChange={(e) => setMarginPct(e.target.value)} />
+        </Field>
+      )}
+    </div>
+  );
+}
+
+function RetrospectiveDurationBlock({ durationDays, setDurationDays, retrospectivePower, setRetrospectivePower, idPrefix }) {
+  return (
+    <div className="retrospective-block">
+      <Field label="Test duration in days (optional)" htmlFor={`${idPrefix}-days`}
+        hint="Used for the traffic split check and the run-long-enough estimate below.">
+        <input id={`${idPrefix}-days`} className="input" type="number" min="1" step="1"
+          value={durationDays} onChange={(e) => setDurationDays(e.target.value)} />
+      </Field>
+      <SegControl
+        legend="Assumed power for run-long-enough estimate"
+        name={`${idPrefix}-retropower`}
+        value={retrospectivePower}
+        onChange={setRetrospectivePower}
+        explainerId="power"
+        options={[
+          { value: 0.7, label: "70%" },
+          { value: 0.8, label: "80%" },
+          { value: 0.9, label: "90%" },
+        ]}
+      />
+      <p className="field-hint">Only used to estimate how many more days you'd need if the result isn't significant yet — not for the significance calculation itself.</p>
+    </div>
   );
 }
 
@@ -1046,7 +1199,7 @@ function MetricSelector({ currentTab, setTab, revMetric, setRevMetric, mode }) {
 
 /* ─────────────────────── PRE_TEST mode (§2) ───────────────────── */
 
-function PreTest({ confidence, twoTailed, power, setPower }) {
+function PreTest({ confidence, setConfidence, tails, setTails, power, setPower }) {
   const [dataSource, setDataSource] = useState("manual");
   const [baseline, setBaseline] = useState("");
   const [mde, setMde] = useState("");
@@ -1070,7 +1223,9 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [baseline, mde, traffic, period, power, k, alloc, confidence, twoTailed]);
+    [baseline, mde, traffic, period, power, k, alloc, confidence, tails]);
+
+  const twoTailed = tails === "two";
 
   const errors = {};
   const p1 = Number(baseline) / 100;
@@ -1171,6 +1326,13 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
             </select>
           </div>
         </Field>
+
+        <TestSettings
+          mode="pre"
+          confidence={confidence} setConfidence={setConfidence}
+          power={power} setPower={setPower}
+          tails={tails} setTails={setTails}
+        />
 
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-k" />
         {k >= 3 && (
@@ -1289,7 +1451,7 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
 }
 
 /* Expandable "show the working" detail - z-test internals + distribution chart */
-function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
+function PreTestRevenue({ confidence, setConfidence, tails, setTails, power, setPower, revMetric }) {
   const [dataSource, setDataSource] = useState("manual");
   const [cv, setCv] = useState("1.5");
   const [mde, setMde] = useState("");
@@ -1345,8 +1507,9 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [cv, mde, traffic, period, power, k, alloc, confidence, twoTailed]);
+    [cv, mde, traffic, period, power, k, alloc, confidence, tails]);
 
+  const twoTailed = tails === "two";
   const errors = {};
   const cvNum = Number(cv);
   const mdeRel = Number(mde) / 100;
@@ -1486,6 +1649,13 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
             </select>
           </div>
         </Field>
+
+        <TestSettings
+          mode="pre"
+          confidence={confidence} setConfidence={setConfidence}
+          power={power} setPower={setPower}
+          tails={tails} setTails={setTails}
+        />
 
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-rev-k" />
         
@@ -1694,7 +1864,7 @@ function DetailedStats({ comparisons, confidence, twoTailed }) {
 
 function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   relUplift, pRaw, pAdj, corrected, ciBase, ciVar, baseCiLabel, varCiLabel,
-  confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore, goal = "increase", skewVerdict }) {
+  confidence, twoTailed, ciFmt, addDays, assumedPower = 0.8, metricNoun = "performed", meaningOverride, zScore, goal = "increase", skewVerdict }) {
   const [showDetails, setShowDetails] = useState(false);
   const alpha = 1 - confidence;
   const decisionP = corrected ? pAdj : pRaw;
@@ -1806,7 +1976,7 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
             {addDays.reachable
               ? (addDays.moreDays === 0
                   ? "Enough data has now been collected for this effect size."
-                  : `At the current traffic rate, about ${fmtInt(addDays.moreDays)} more day${addDays.moreDays === 1 ? "" : "s"} would be needed to confirm an uplift this size (80% power).`)
+                  : `At the current traffic rate, about ${fmtInt(addDays.moreDays)} more day${addDays.moreDays === 1 ? "" : "s"} would be needed to confirm an uplift this size (${Math.round(assumedPower * 100)}% power).`)
               : (addDays.reason === "not-winning"
                   ? "This variant isn't currently ahead of Variant A, so more time won't make it a winner."
                   : "An uplift this small is impractical to confirm with realistic traffic.")}
@@ -1898,17 +2068,24 @@ function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw
 
 /* ─────────────── POST_TEST · Conversion rate (§3) ─────────────── */
 
-function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
+function PostCvr({ confidence, setConfidence, tails, setTails, k, rows, setRows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
   const labels = makeLabels(k);
-  const [question, setQuestion] = useState("better"); // "better" | "noninf"
-  const [goal, setGoal] = useState("increase");       // "increase" | "decrease"
-  const [marginPct, setMarginPct] = useState("1");     // non-inferiority margin, relative %
+  const [intent, setIntent] = useState("better"); // "better" | "different" | "notworse"
+  const [goal, setGoal] = useState("increase");   // "increase" | "decrease"
+  const [marginPct, setMarginPct] = useState("1");
+  const [retrospectivePower, setRetrospectivePower] = useState(0.8);
   const marginRel = Number(marginPct) / 100;
-  const isNonInf = question === "noninf";
+  const isNonInf = intent === "notworse";
+  const twoTailed = !isNonInf && tails === "two";
+
+  React.useEffect(() => {
+    setTails(intent === "different" ? "two" : "one");
+  }, [intent, setTails]);
+
   const [calculated, setCalculated] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [rows, alloc, question, goal, marginPct, k, confidence, twoTailed, durationDays]);
+    [rows, alloc, intent, goal, marginPct, k, confidence, tails, durationDays, retrospectivePower]);
 
   const parsed = rows.map((r) => ({ v: Number(r.visitors), c: Number(r.conversions) }));
   const rowErrors = parsed.map(({ v, c }, i) => {
@@ -1955,7 +2132,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
       if (decisionP < alpha) return r; // already significant
       const nPerArm = (r.n1 + r.n2) / 2;
       const est = additionalDaysNeeded({
-        pA: r.p1, pVar: r.p2, nPerArm, daysRun: days, alphaAdj, power: 0.8, twoTailed,
+        pA: r.p1, pVar: r.p2, nPerArm, daysRun: days, alphaAdj, power: retrospectivePower, twoTailed,
       });
       return { ...r, addDays: est };
     });
@@ -1966,41 +2143,24 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
       <section className="panel" aria-labelledby="cvr-h">
         <p className="field-hint">Raw counts only - conversion rates are calculated for you.</p>
 
-        <VariantStepper k={k} setVariantCount={setVariantCount} idBase="cvr-k" />
-
-        <SegControl
-          legend="What are you testing for?"
-          name="question"
-          value={question}
-          onChange={setQuestion}
-          options={[
-            { value: "better", label: "Is the variant better?" },
-            { value: "noninf", label: "Is it not worse? (Non-inferiority)" },
-          ]}
-          explainerId="noninf"
+        <TestIntent
+          intent={intent}
+          setIntent={setIntent}
+          goal={goal}
+          setGoal={setGoal}
+          marginPct={marginPct}
+          setMarginPct={setMarginPct}
         />
-        {!isNonInf && (
-          <SegControl
-            legend="Goal direction"
-            name="goal"
-            value={goal}
-            onChange={setGoal}
-            options={[
-              { value: "increase", label: "Increase is a winner" },
-              { value: "decrease", label: "Decrease is a winner" },
-            ]}
-          />
-        )}
-        {isNonInf && (
-          <div className="animated-fade-in">
-            <Field label="Acceptable non-inferiority margin (relative drop, %)" htmlFor="cvr-margin"
-              explainerId="noninf"
-              hint="Example: 1% means you'll accept the variant as long as it isn't more than 1% below control.">
-              <input id="cvr-margin" className="input" type="number" min="0" step="0.1"
-                value={marginPct} onChange={(e) => setMarginPct(e.target.value)} />
-            </Field>
-          </div>
-        )}
+
+        <TestSettings
+          mode="post"
+          confidence={confidence} setConfidence={setConfidence}
+          tails={tails} setTails={setTails}
+          blockTwoTailed={intent !== "different"}
+          blockOneTailed={intent === "different"}
+        />
+
+        <VariantStepper k={k} setVariantCount={setVariantCount} idBase="cvr-k" />
 
         {rows.map((r, i) => {
           const v = Number(r.visitors), c = Number(r.conversions);
@@ -2036,10 +2196,13 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="cvr" />
         </Field>
 
-        <Field label="Test duration in days (optional)" htmlFor="cvr-days">
-          <input id="cvr-days" className="input" type="number" min="1" step="1"
-            value={durationDays} onChange={(e) => setDurationDays(e.target.value)} />
-        </Field>
+        <RetrospectiveDurationBlock
+          durationDays={durationDays}
+          setDurationDays={setDurationDays}
+          retrospectivePower={retrospectivePower}
+          setRetrospectivePower={setRetrospectivePower}
+          idPrefix="cvr"
+        />
 
         <button type="button" className="btn-calc"
           onClick={() => {
@@ -2060,7 +2223,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
         <div className="results-head">
           <h2 id="cvr-r" className="panel-title">Results</h2>
           <div className="test-chip-row">
-            <div className="test-pill">{isNonInf ? "Non-inferiority" : (twoTailed ? "Two-tailed" : "One-tailed")}</div>
+            <div className="test-pill">{isNonInf ? "Non-inferiority" : intent === "different" ? "Two-sided" : "One-sided superiority"}</div>
             <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
             {isNonInf && <div className="test-pill">{fmtPct(marginRel)} margin</div>}
             {!isNonInf && corrected && <div className="test-pill">Multi-variant corrected</div>}
@@ -2154,6 +2317,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
                       ciBase={r.ciA} ciVar={r.ciB}
                       baseCiLabel="Variant A Conversion Rate" varCiLabel={`${r.name} Conversion Rate`}
                       addDays={r.addDays}
+                      assumedPower={retrospectivePower}
                       confidence={confidence} twoTailed={twoTailed}
                       metricNoun="converted"
                       zScore={{ label: "Z-score", value: r.z }}
@@ -2380,8 +2544,10 @@ function parseRevenueFile(text) {
   return { values: Array.from(rawValues.values()), errors, numCols, revenueColIdx };
 }
 
-function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
+function PostRevenue({ confidence, setConfidence, tails, setTails, k, rows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
   const labels = makeLabels(k);
+  const twoTailed = tails === "two";
+  const [retrospectivePower, setRetrospectivePower] = useState(0.8);
 
   // Per-variant local state: visitor/conversion overrides, file parse result, file name
   const [visitorOverrides, setVisitorOverrides] = useState(Array(8).fill(''));
@@ -2393,7 +2559,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   const fileRefs = useRef(Array.from({ length: 8 }, () => null));
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [visitorOverrides, convOverrides, fileParsed, winsorize, outlierPct, alloc, k, confidence, twoTailed, durationDays, rows]);
+    [visitorOverrides, convOverrides, fileParsed, winsorize, outlierPct, alloc, k, confidence, tails, durationDays, rows, retrospectivePower]);
 
   // Effective visitors/conversions per variant: override takes priority, then CVR tab value
   const effectiveVisitors = labels.map((_, i) => {
@@ -2512,13 +2678,15 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="rev-h">
+        <p className="field-hint">Order revenue files only - revenue per visitor and average order value are calculated for you.</p>
+
+        <TestSettings
+          mode="post"
+          confidence={confidence} setConfidence={setConfidence}
+          tails={tails} setTails={setTails}
+        />
 
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="rev-k" />
-
-        <Field label="Planned traffic split" htmlFor={undefined} explainerId="srm"
-          hint="Defaults to an equal split - change it if your experiment used an unequal split (e.g. 30/70).">
-          <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="rev" />
-        </Field>
 
         <h3 className="block-title">Traffic & Conversions per variant</h3>
         <p className="field-hint">Pulled from the Conversion rate tab if entered there - edit here to fix mismatches with your files.</p>
@@ -2593,6 +2761,11 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
           </div>
         ))}
 
+        <Field label="Planned traffic split (for the traffic split check)" htmlFor={undefined} explainerId="srm"
+          hint="Defaults to an equal split - change it if your experiment used an unequal split (e.g. 30/70).">
+          <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="rev" />
+        </Field>
+
         <div className="outlier-wrap">
           <div className="outlier-header">
             <h3 className="block-title" style={{margin:0}}><Explainer id="winsorize" inline label="Outlier handling" /></h3>
@@ -2626,10 +2799,13 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
           )}
         </div>
 
-        <Field label="Test duration in days (optional)" htmlFor="rev-days">
-          <input id="rev-days" className="input" type="number" min="1" step="1"
-            value={durationDays} onChange={e => setDurationDays(e.target.value)} />
-        </Field>
+        <RetrospectiveDurationBlock
+          durationDays={durationDays}
+          setDurationDays={setDurationDays}
+          retrospectivePower={retrospectivePower}
+          setRetrospectivePower={setRetrospectivePower}
+          idPrefix="rev"
+        />
 
         <button type="button" className="btn-calc"
           onClick={() => {
@@ -2823,7 +2999,6 @@ export default function EclipseCalculator() {
   const [confidence, setConfidence] = useState(0.95);
   const [tails, setTails] = useState("two");
   const [power, setPower] = useState(0.8);
-  const twoTailed = tails === "two";
 
   // Shared state between CVR and Revenue tabs
   const [k, setK] = useState(2);
@@ -2887,57 +3062,19 @@ export default function EclipseCalculator() {
           mode={mode}
         />
 
-        <section className="settings" aria-label="Statistical settings" key={`settings-${mode}-${postTab}`} style={{ marginTop: '24px' }}>
-          <SegControl
-            legend="Confidence level"
-            name="conf"
-            value={confidence}
-            onChange={setConfidence}
-            explainerId="confidence"
-            options={[
-              { value: 0.9, label: "90%" },
-              { value: 0.95, label: "95%" },
-              { value: 0.99, label: "99%" },
-            ]}
-          />
-          <SegControl
-            legend="Tails"
-            name="tails"
-            value={tails}
-            onChange={setTails}
-            explainerId="tailed"
-            options={[
-              { value: "two", label: "Two-tailed" },
-              { value: "one", label: "One-tailed" },
-            ]}
-          />
-          <SegControl
-            legend="Statistical power"
-            name="power-global"
-            value={power}
-            onChange={setPower}
-            explainerId="power"
-            options={[
-              { value: 0.7, label: "70%" },
-              { value: 0.8, label: "80%" },
-              { value: 0.9, label: "90%" },
-            ]}
-          />
-        </section>
-
         <div style={{ marginTop: '24px' }}>
           {mode === "pre" ? (
             preTab === "cvr" 
-              ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} />
-              : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} revMetric={revMetric} />
+              ? <PreTest key="pre-cvr" confidence={confidence} setConfidence={setConfidence} tails={tails} setTails={setTails} power={power} setPower={setPower} />
+              : <PreTestRevenue key="pre-rev" confidence={confidence} setConfidence={setConfidence} tails={tails} setTails={setTails} power={power} setPower={setPower} revMetric={revMetric} />
           ) : (
             postTab === "cvr"
-              ? <PostCvr key="cvr" confidence={confidence} twoTailed={twoTailed}
+              ? <PostCvr key="cvr" confidence={confidence} setConfidence={setConfidence} tails={tails} setTails={setTails}
                 k={k} rows={rows} setRows={setRows}
                 alloc={alloc} setAlloc={setAlloc}
                 setVariantCount={setVariantCount}
                 durationDays={durationDays} setDurationDays={setDurationDays} />
-              : <PostRevenue key="rev" confidence={confidence} twoTailed={twoTailed}
+              : <PostRevenue key="rev" confidence={confidence} setConfidence={setConfidence} tails={tails} setTails={setTails}
                 k={k} rows={rows}
                 alloc={alloc} setAlloc={setAlloc}
                 setVariantCount={setVariantCount}
@@ -3558,6 +3695,13 @@ const CSS = `
 
 .traffic-row{display:flex;gap:8px;align-items:center;}
 .block-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:15px;margin:20px 0 4px;color:var(--ink);line-height:1.5;}
+.test-settings{margin:0 0 20px;padding:16px 18px;background:var(--paper);border:1px solid var(--line);border-radius:12px;}
+.test-settings-title{margin:0 0 12px !important;font-size:16px;}
+.test-settings-advanced{margin-top:2px;}
+.test-intent{margin-bottom:4px;}
+.retrospective-block{margin-top:4px;padding-top:16px;border-top:1px dashed var(--line);}
+.seg-opt.seg-disabled{opacity:.4;cursor:not-allowed;}
+.seg-opt.seg-disabled input{pointer-events:none;}
 .traffic-block-v2{display:flex;flex-direction:column;gap:16px;margin-bottom:12px;}
 .traffic-arm{background:var(--paper);padding:12px 16px;border-radius:12px;border:1px solid var(--line);}
 .traffic-arm-name{font-weight:600;font-size:14px;color:var(--navy);margin-bottom:10px;font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;}
