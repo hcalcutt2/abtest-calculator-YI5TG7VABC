@@ -1904,17 +1904,13 @@ function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw
 
 /* ─────────────── POST_TEST · Conversion rate (§3) ─────────────── */
 
-function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
+function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, setRows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
   const labels = makeLabels(k);
-  const [question, setQuestion] = useState("better"); // "better" | "noninf"
-  const [goal, setGoal] = useState("increase");       // "increase" | "decrease"
-  const [marginPct, setMarginPct] = useState("1");     // non-inferiority margin, relative %
   const marginRel = Number(marginPct) / 100;
-  const isNonInf = question === "noninf";
   const [calculated, setCalculated] = useState(false);
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [rows, alloc, question, goal, marginPct, k, confidence, twoTailed, durationDays]);
+    [rows, alloc, goal, marginPct, k, confidence, twoTailed, isNonInf, durationDays]);
 
   const parsed = rows.map((r) => ({ v: Number(r.visitors), c: Number(r.conversions) }));
   const rowErrors = parsed.map(({ v, c }, i) => {
@@ -1973,40 +1969,6 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
         <p className="field-hint">Raw counts only - conversion rates are calculated for you.</p>
 
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="cvr-k" />
-
-        <SegControl
-          legend="What are you testing for?"
-          name="question"
-          value={question}
-          onChange={setQuestion}
-          options={[
-            { value: "better", label: "Is the variant better?" },
-            { value: "noninf", label: "Is it not worse? (Non-inferiority)" },
-          ]}
-          explainerId="noninf"
-        />
-        {!isNonInf && (
-          <SegControl
-            legend="Goal direction"
-            name="goal"
-            value={goal}
-            onChange={setGoal}
-            options={[
-              { value: "increase", label: "Increase is a winner" },
-              { value: "decrease", label: "Decrease is a winner" },
-            ]}
-          />
-        )}
-        {isNonInf && (
-          <div className="animated-fade-in">
-            <Field label="Acceptable non-inferiority margin (relative drop, %)" htmlFor="cvr-margin"
-              explainerId="noninf"
-              hint="Example: 1% means you'll accept the variant as long as it isn't more than 1% below control.">
-              <input id="cvr-margin" className="input" type="number" min="0" step="0.1"
-                value={marginPct} onChange={(e) => setMarginPct(e.target.value)} />
-            </Field>
-          </div>
-        )}
 
         {rows.map((r, i) => {
           const v = Number(r.visitors), c = Number(r.conversions);
@@ -2831,6 +2793,17 @@ export default function EclipseCalculator() {
   const [power, setPower] = useState(0.8);
   const twoTailed = tails === "two";
 
+  // Conversion-rate analysis: test type + winner direction (lives in settings, not the panel)
+  const [cvrTestType, setCvrTestType] = useState("two"); // "two" | "one" | "noninf"
+  const [goal, setGoal] = useState("increase");
+  const [marginPct, setMarginPct] = useState("1");
+
+  const setCvrTestTypeAndSync = (next) => {
+    setCvrTestType(next);
+    if (next === "two") setTails("two");
+    if (next === "one") setTails("one");
+  };
+
   // Shared state between CVR and Revenue tabs
   const [k, setK] = useState(2);
   const [rows, setRows] = useState([
@@ -2906,17 +2879,55 @@ export default function EclipseCalculator() {
               { value: 0.99, label: "99%" },
             ]}
           />
-          <SegControl
-            legend="Tails"
-            name="tails"
-            value={tails}
-            onChange={setTails}
-            explainerId="tailed"
-            options={[
-              { value: "two", label: "Two-tailed" },
-              { value: "one", label: "One-tailed" },
-            ]}
-          />
+          {mode === "post" && postTab === "cvr" ? (
+            <>
+              <SegControl
+                legend="Tails"
+                name="cvr-tails"
+                value={cvrTestType}
+                onChange={setCvrTestTypeAndSync}
+                explainerId="tailed"
+                options={[
+                  { value: "two", label: "Two-tailed" },
+                  { value: "one", label: "One-tailed" },
+                  { value: "noninf", label: "Non-inferiority" },
+                ]}
+              />
+              {cvrTestType !== "noninf" ? (
+                <SegControl
+                  legend="Goal direction"
+                  name="cvr-goal"
+                  value={goal}
+                  onChange={setGoal}
+                  options={[
+                    { value: "increase", label: "Increase is a winner" },
+                    { value: "decrease", label: "Decrease is a winner" },
+                  ]}
+                />
+              ) : (
+                <div className="settings-field">
+                  <Field label="Non-inferiority margin (%)" htmlFor="cvr-margin"
+                    explainerId="noninf"
+                    hint="Max relative drop you'll accept vs control.">
+                    <input id="cvr-margin" className="input" type="number" min="0" step="0.1"
+                      value={marginPct} onChange={(e) => setMarginPct(e.target.value)} />
+                  </Field>
+                </div>
+              )}
+            </>
+          ) : (
+            <SegControl
+              legend="Tails"
+              name="tails"
+              value={tails}
+              onChange={setTails}
+              explainerId="tailed"
+              options={[
+                { value: "two", label: "Two-tailed" },
+                { value: "one", label: "One-tailed" },
+              ]}
+            />
+          )}
           <SegControl
             legend="Statistical power"
             name="power-global"
@@ -2938,7 +2949,11 @@ export default function EclipseCalculator() {
               : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} revMetric={revMetric} />
           ) : (
             postTab === "cvr"
-              ? <PostCvr key="cvr" confidence={confidence} twoTailed={twoTailed}
+              ? <PostCvr key="cvr" confidence={confidence}
+                twoTailed={cvrTestType === "two"}
+                isNonInf={cvrTestType === "noninf"}
+                goal={goal}
+                marginPct={marginPct}
                 k={k} rows={rows} setRows={setRows}
                 alloc={alloc} setAlloc={setAlloc}
                 setVariantCount={setVariantCount}
@@ -3109,6 +3124,8 @@ const CSS = `
 .settings{max-width:1080px;margin:16px auto 0;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);box-shadow:var(--shadow);padding:16px 20px;display:flex;gap:36px;
   flex-wrap:wrap;align-items:flex-start;justify-content:flex-start;}
+.settings-field{min-width:180px;}
+.settings-field .field{margin-bottom:0;}
 .seg{border:0;padding:0;margin:0;display:flex;flex-direction:column;align-items:flex-start;}
 .seg-legend{font-weight:600;font-size:13.5px;margin-bottom:7px;padding:0;text-align:left;}
 [data-theme='dark'] .seg-legend{color:var(--ink);}
