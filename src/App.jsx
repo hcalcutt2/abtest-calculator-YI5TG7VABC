@@ -1137,6 +1137,14 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
           </div>
         )}
 
+        <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-k" />
+        {k >= 3 && (
+          <p className="note">
+            Testing {comparisons} variants against control - the sample sizes below already include
+            <Explainer id="holm" inline label="the correction this needs" />, so the duration estimate is honest for a multi-variant test.
+          </p>
+        )}
+
         <Field label="Baseline conversion rate (%)" htmlFor="pre-baseline" error={errors.baseline} explainerId="ztest"
           hint="Your current conversion rate, before the test.">
           <input id="pre-baseline" className="input" type="number" min="0" max="100" step="0.01" placeholder="e.g. 2.0"
@@ -1171,14 +1179,6 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
             </select>
           </div>
         </Field>
-
-        <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-k" />
-        {k >= 3 && (
-          <p className="note">
-            Testing {comparisons} variants against control - the sample sizes below already include
-            <Explainer id="holm" inline label="the correction this needs" />, so the duration estimate is honest for a multi-variant test.
-          </p>
-        )}
 
         <Field label="Traffic split (defaults to equal)" htmlFor={undefined}>
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="pre" />
@@ -1411,6 +1411,14 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
           </div>
         )}
 
+        <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-rev-k" />
+        {k >= 3 && (
+          <p className="note">
+            Testing {comparisons} variants against control - the sample sizes below already include
+            <Explainer id="holm" inline label="the correction this needs" />, so the duration estimate is honest for a multi-variant test.
+          </p>
+        )}
+
         <Field label={`Coefficient of Variation (CV) for ${metricLabel}`} htmlFor="pre-cv" error={errors.cv} explainerId="cv"
           hint={`Standard deviation divided by the mean for ${metricLabel}.`}>
           <input id="pre-cv" className="input" type="number" min="0" step="0.01" placeholder="e.g. 1.5"
@@ -1487,8 +1495,6 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
           </div>
         </Field>
 
-        <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-rev-k" />
-        
         <Field label="Traffic split (defaults to equal)" htmlFor={undefined}>
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="pre-rev" />
         </Field>
