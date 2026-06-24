@@ -66,7 +66,7 @@ function logGamma(x) {
   return -tmp + Math.log(2.506628274631 * ser / xx);
 }
 
-// Regularised lower incomplete gamma P(a, x) — for chi-square CDF
+// Regularised lower incomplete gamma P(a, x) - for chi-square CDF
 function lowerRegGamma(a, x) {
   if (x <= 0) return 0;
   if (x < a + 1) {
@@ -95,7 +95,7 @@ function lowerRegGamma(a, x) {
 }
 const chiSqPValue = (x, df) => Math.max(0, Math.min(1, 1 - lowerRegGamma(df / 2, x / 2)));
 
-// Regularised incomplete beta I_x(a,b) — for Student-t CDF
+// Regularised incomplete beta I_x(a,b) - for Student-t CDF
 function betacf(a, b, x) {
   const qab = a + b, qap = a + 1, qam = a - 1;
   let c = 1, d = 1 - (qab * x) / qap;
@@ -313,13 +313,13 @@ function srmCheck(counts, allocPcts) {
 
 /* ──────────────────────── Formatting (§8.4) ───────────────────── */
 
-const fmtInt = (n) => Number.isFinite(n) ? Math.round(n).toLocaleString("en-GB") : "—";
-const fmtPct = (x, dp = 2) => Number.isFinite(x) ? `${(x * 100).toFixed(dp)}%` : "—";
+const fmtInt = (n) => Number.isFinite(n) ? Math.round(n).toLocaleString("en-GB") : "-";
+const fmtPct = (x, dp = 2) => Number.isFinite(x) ? `${(x * 100).toFixed(dp)}%` : "-";
 const fmtSignedPct = (x, dp = 2) =>
-  Number.isFinite(x) ? `${x >= 0 ? "+" : "−"}${Math.abs(x * 100).toFixed(dp)}%` : "—";
-const fmtP = (p) => !Number.isFinite(p) ? "—" : p < 0.0001 ? "< 0.0001" : p.toFixed(4);
+  Number.isFinite(x) ? `${x >= 0 ? "+" : "−"}${Math.abs(x * 100).toFixed(dp)}%` : "-";
+const fmtP = (p) => !Number.isFinite(p) ? "-" : p < 0.0001 ? "< 0.0001" : p.toFixed(4);
 const fmtMoney = (x, dp = 2) =>
-  Number.isFinite(x) ? x.toLocaleString("en-GB", { minimumFractionDigits: dp, maximumFractionDigits: dp }) : "—";
+  Number.isFinite(x) ? x.toLocaleString("en-GB", { minimumFractionDigits: dp, maximumFractionDigits: dp }) : "-";
 
 /* ─────────────────────── Export helpers ───────────────────────── */
 
@@ -351,7 +351,7 @@ function loadJsPdf() {
     const s = document.createElement("script");
     s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
     s.onload = () => resolve(window.jspdf.jsPDF);
-    s.onerror = () => reject(new Error("Couldn't load the PDF library — check your connection."));
+    s.onerror = () => reject(new Error("Couldn't load the PDF library - check your connection."));
     document.head.appendChild(s);
   });
   return _jspdfPromise;
@@ -399,17 +399,17 @@ async function exportPdf(title, sections) {
 
 function DownloadIcon() {
   return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <path d="M3 17v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3" />
-      <polyline points="8 12 12 17 16 12" />
-      <line x1="12" y1="3" x2="12" y2="17" />
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   );
 }
 
 function UploadIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="17 8 12 3 7 8" />
       <line x1="12" y1="3" x2="12" y2="15" />
@@ -419,7 +419,7 @@ function UploadIcon() {
 
 function FileIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
       <polyline points="14 2 14 8 20 8" />
     </svg>
@@ -469,13 +469,13 @@ const EXPLAINERS = {
   },
   power: {
     label: "What is statistical power?",
-    lead: "Power is your protection against missing a winner — the chance your test spots a real improvement instead of coming back flat. 80% is the default as it is the standard business trade-off between speed and sensitivity.",
+    lead: "Power is your protection against missing a winner - the chance your test spots a real improvement instead of coming back flat. 80% is the default as it is the standard business trade-off between speed and sensitivity.",
     bullets: [
       "70% power: a 3-in-10 chance a genuine winner looks like nothing. Fastest, but riskiest.",
       "80% power: a 1-in-5 chance of missing a real winner. The standard choice.",
       "90% power: only a 1-in-10 chance of missing it, but needs more visitors and a longer test.",
     ],
-    foot: "Higher power means you're less likely to scrap a change that was actually working — at the cost of more traffic.",
+    foot: "Higher power means you're less likely to scrap a change that was actually working - at the cost of more traffic.",
   },
   mde: {
     label: "What is the minimum detectable effect?",
@@ -483,11 +483,11 @@ const EXPLAINERS = {
   },
   srm: {
     label: "What is a sample ratio mismatch?",
-    body: "When traffic doesn't split the way the experiment was set up to split it — for example, you planned 50/50 but on very large numbers got a split too lopsided to be random. It's usually caused by a setup problem: redirect bugs, bot filtering that treats variants differently, or lost tracking. When it happens, the groups may not be comparable, so results are unreliable. This check uses a chi-square test against your planned split, so it works for any number of variants and for unequal splits.",
+    body: "When traffic doesn't split the way the experiment was set up to split it - for example, you planned 50/50 but on very large numbers got a split too lopsided to be random. It's usually caused by a setup problem: redirect bugs, bot filtering that treats variants differently, or lost tracking. When it happens, the groups may not be comparable, so results are unreliable. This check uses a chi-square test against your planned split, so it works for any number of variants and for unequal splits.",
   },
   tailed: {
-    label: "One-tailed vs two-tailed — which should I use?",
-    body: "A two-tailed test asks 'is the variant different — better or worse?'. A one-tailed test asks only 'is the variant better?'. Use one-tailed only when a decrease would be acted on exactly the same way as no change at all. If a drop would worry you, that's a two-tailed question. The default here is two-tailed.",
+    label: "One-tailed vs two-tailed - which should I use?",
+    body: "A two-tailed test asks 'is the variant different - better or worse?'. A one-tailed test asks only 'is the variant better?'. Use one-tailed only when a decrease would be acted on exactly the same way as no change at all. If a drop would worry you, that's a two-tailed question. The default here is two-tailed.",
   },
   holm: {
     label: "Why do extra variants need a correction?",
@@ -495,35 +495,35 @@ const EXPLAINERS = {
   },
   ztest: {
     label: "What is a z-test?",
-    body: "The test used for comparing proportions — counts out of totals, like conversion rate. Example: 190 conversions from 10,000 visitors vs 230 from 10,000. It asks whether a gap between two rates is bigger than randomness alone would explain.",
+    body: "The test used for comparing proportions - counts out of totals, like conversion rate. Example: 190 conversions from 10,000 visitors vs 230 from 10,000. It asks whether a gap between two rates is bigger than randomness alone would explain.",
   },
   ttest: {
     label: "What is a t-test?",
-    body: "The test used for comparing averages of continuous values, like revenue per visitor (£1.84 vs £2.01). This calculator uses Welch's version, which allows the two groups to vary by different amounts — the safer choice for revenue data.",
+    body: "The test used for comparing averages of continuous values, like revenue per visitor (£1.84 vs £2.01). This calculator uses Welch's version, which allows the two groups to vary by different amounts - the safer choice for revenue data.",
   },
   metrics: {
-    label: "CVR, RPV and AOV — definitions",
+    label: "CVR, RPV and AOV - definitions",
     body: "CVR (conversion rate) = conversions ÷ visitors. RPV (revenue per visitor) = total revenue ÷ all visitors, including those who bought nothing. AOV (average order value) = total revenue ÷ orders, so it only looks at buyers.",
   },
   confpct: {
     label: "What does the confidence % mean?",
-    body: "It's how close the result is to being statistically significant — calculated as 100% minus the p-value. A result at 95% confidence has cleared the usual significance bar. Important: this is NOT the chance the variant will win. A variant at 70% confidence hasn't 'won 70% of the time' — it just hasn't yet gathered enough evidence to be called significant. Use it as a progress reading, not a probability of success.",
+    body: "It's how close the result is to being statistically significant - calculated as 100% minus the p-value. A result at 95% confidence has cleared the usual significance bar. Important: this is NOT the chance the variant will win. A variant at 70% confidence hasn't 'won 70% of the time' - it just hasn't yet gathered enough evidence to be called significant. Use it as a progress reading, not a probability of success.",
   },
   aovrpv: {
     label: "Why can AOV and RPV disagree?",
     body: "AOV only counts people who ordered. A variant that persuades extra people to make small orders pushes conversion and revenue per visitor up while pulling average order value down. RPV reflects the full effect on every visitor, which is why it's usually the primary revenue metric.",
   },
   mdeabs: {
-    label: "Relative vs absolute — what's the difference?",
+    label: "Relative vs absolute - what's the difference?",
     body: "Relative uplift is expressed as a percentage of your baseline; absolute uplift is the change in percentage points. Example: a 10% relative uplift on a 2.00% baseline is the same as a 0.20 percentage-point absolute change (2.00% → 2.20%). This calculator uses relative as the input because it's how most teams describe a target ('a 10% lift'); the absolute equivalent is shown so you can sense-check it.",
   },
   noninf: {
     label: "What is a non-inferiority test?",
-    body: "Most tests ask 'is the variant better?'. A non-inferiority test asks the opposite: 'can I be confident the variant is NOT meaningfully worse?'. You'd use it when you want to ship a change for some other reason — simpler code, lower cost, a nicer design — and just need to confirm it doesn't hurt conversion by more than an amount you can live with. You set that amount as the margin. Example: a 1% margin means you'll accept the variant as long as you're confident it isn't more than 1% (relative) below control.",
+    body: "Most tests ask 'is the variant better?'. A non-inferiority test asks the opposite: 'can I be confident the variant is NOT meaningfully worse?'. You'd use it when you want to ship a change for some other reason - simpler code, lower cost, a nicer design - and just need to confirm it doesn't hurt conversion by more than an amount you can live with. You set that amount as the margin. Example: a 1% margin means you'll accept the variant as long as you're confident it isn't more than 1% (relative) below control.",
   },
   winsorize: {
     label: "What is capping outliers?",
-    body: "Revenue data often contains 'whales' — a few customers who spend 10x or 100x more than the average. These outliers can skew your results and make a variant look like a winner just because one person made a huge order. Capping (Winsorizing) replaces these extreme values with a lower threshold (e.g. the 99th percentile), making your statistical test more robust and reliable.",
+    body: "Revenue data often contains 'whales' - a few customers who spend 10x or 100x more than the average. These outliers can skew your results and make a variant look like a winner just because one person made a huge order. Capping (Winsorizing) replaces these extreme values with a lower threshold (e.g. the 99th percentile), making your statistical test more robust and reliable.",
   },
   skewness: {
     label: "What is data skewness?",
@@ -542,7 +542,7 @@ const FAQ_ITEMS = [
   },
   {
     q: "How do I know if my A/B test result is statistically significant?",
-    a: "A result is statistically significant when the difference between variants is unlikely to have happened by chance alone. Enter your visitor and conversion counts — or upload revenue data — and the calculator runs the appropriate statistical test. It then tells you in plain English whether the result clears your chosen confidence level (90%, 95% or 99%) and shows the p-value and confidence interval behind that call.",
+    a: "A result is statistically significant when the difference between variants is unlikely to have happened by chance alone. Enter your visitor and conversion counts - or upload revenue data - and the calculator runs the appropriate statistical test. It then tells you in plain English whether the result clears your chosen confidence level (90%, 95% or 99%) and shows the p-value and confidence interval behind that call.",
   },
   {
     q: "What is a p-value in A/B testing?",
@@ -554,15 +554,15 @@ const FAQ_ITEMS = [
   },
   {
     q: "What is statistical power in A/B testing?",
-    a: "Statistical power is the probability your test will detect a real improvement if one exists. At 80% power — the usual default — there is roughly a one-in-five chance of missing a genuine winner. Higher power (90%) needs more traffic but reduces that risk. Set power alongside confidence when planning a test so you are not under-powered before you start.",
+    a: "Statistical power is the probability your test will detect a real improvement if one exists. At 80% power - the usual default - there is roughly a one-in-five chance of missing a genuine winner. Higher power (90%) needs more traffic but reduces that risk. Set power alongside confidence when planning a test so you are not under-powered before you start.",
   },
   {
     q: "What is the minimum detectable effect (MDE)?",
-    a: "The minimum detectable effect is the smallest relative uplift you want the test to be able to spot — for example, a 10% lift on a 2.00% baseline means detecting a move from 2.00% to 2.20%. Smaller MDEs need much larger sample sizes. Pick an MDE based on the smallest change that would actually change your decision, not the smallest change you can imagine.",
+    a: "The minimum detectable effect is the smallest relative uplift you want the test to be able to spot - for example, a 10% lift on a 2.00% baseline means detecting a move from 2.00% to 2.20%. Smaller MDEs need much larger sample sizes. Pick an MDE based on the smallest change that would actually change your decision, not the smallest change you can imagine.",
   },
   {
     q: "Should I use a one-tailed or two-tailed test?",
-    a: "A two-tailed test asks whether the variant is different — better or worse. A one-tailed test asks only whether it is better. Use one-tailed only when a decrease would be treated exactly the same as no change. If a drop would worry you, use two-tailed. Two-tailed is the default here and is the safer choice for most business decisions.",
+    a: "A two-tailed test asks whether the variant is different - better or worse. A one-tailed test asks only whether it is better. Use one-tailed only when a decrease would be treated exactly the same as no change. If a drop would worry you, use two-tailed. Two-tailed is the default here and is the safer choice for most business decisions.",
   },
   {
     q: "Can I test more than two variants (A/B/C/n)?",
@@ -574,11 +574,11 @@ const FAQ_ITEMS = [
   },
   {
     q: "Can I measure revenue, not just conversion rate?",
-    a: "Yes. Paste or upload order-level revenue data and the calculator measures revenue per visitor (RPV) and average order value (AOV). Revenue is analysed with Welch's t-test, which handles unequal variance between groups — the standard approach for skewed revenue data. You can also cap outliers at the 90th, 95th or 99th percentile before analysis.",
+    a: "Yes. Paste or upload order-level revenue data and the calculator measures revenue per visitor (RPV) and average order value (AOV). Revenue is analysed with Welch's t-test, which handles unequal variance between groups - the standard approach for skewed revenue data. You can also cap outliers at the 90th, 95th or 99th percentile before analysis.",
   },
   {
     q: "What is the difference between conversion rate, RPV and AOV?",
-    a: "Conversion rate (CVR) is conversions divided by visitors. Revenue per visitor (RPV) is total revenue divided by all visitors, including non-buyers — usually the primary revenue metric because it reflects the full funnel. Average order value (AOV) is total revenue divided by orders only, so it ignores visitors who did not order. A variant can raise RPV while lowering AOV if it brings in more small orders.",
+    a: "Conversion rate (CVR) is conversions divided by visitors. Revenue per visitor (RPV) is total revenue divided by all visitors, including non-buyers - usually the primary revenue metric because it reflects the full funnel. Average order value (AOV) is total revenue divided by orders only, so it ignores visitors who did not order. A variant can raise RPV while lowering AOV if it brings in more small orders.",
   },
   {
     q: "What are confidence intervals in A/B test results?",
@@ -586,15 +586,15 @@ const FAQ_ITEMS = [
   },
   {
     q: "How long should I run an A/B test?",
-    a: "Run until you reach the sample size your plan requires — stopping early inflates false positives. Ideally include at least one to two full business weeks so weekday and weekend patterns are both represented. The planning calculator estimates duration from your traffic volume; the analysis tab can also check whether you ran long enough relative to your original plan.",
+    a: "Run until you reach the sample size your plan requires - stopping early inflates false positives. Ideally include at least one to two full business weeks so weekday and weekend patterns are both represented. The planning calculator estimates duration from your traffic volume; the analysis tab can also check whether you ran long enough relative to your original plan.",
   },
   {
     q: "What is a non-inferiority test?",
-    a: "A standard test asks whether a variant is better than control. A non-inferiority test asks whether you can be confident the variant is not meaningfully worse — useful when you want to ship a change for other reasons (simpler design, lower cost) and only need to confirm it does not hurt conversion beyond a margin you set. Enable it in the conversion-rate analysis tab and define your acceptable margin.",
+    a: "A standard test asks whether a variant is better than control. A non-inferiority test asks whether you can be confident the variant is not meaningfully worse - useful when you want to ship a change for other reasons (simpler design, lower cost) and only need to confirm it does not hurt conversion beyond a margin you set. Enable it in the conversion-rate analysis tab and define your acceptable margin.",
   },
   {
     q: "What is a sample ratio mismatch (SRM)?",
-    a: "A sample ratio mismatch happens when actual traffic splits do not match the planned allocation — for example, you intended 50/50 but received 48/52 on large volumes. It often points to a tracking or redirect bug and can mean the groups are not comparable. The calculator runs a chi-square check against your planned split and flags a mismatch when the gap is too large to be random.",
+    a: "A sample ratio mismatch happens when actual traffic splits do not match the planned allocation - for example, you intended 50/50 but received 48/52 on large volumes. It often points to a tracking or redirect bug and can mean the groups are not comparable. The calculator runs a chi-square check against your planned split and flags a mismatch when the gap is too large to be random.",
   },
 ];
 
@@ -685,7 +685,7 @@ function DetectableUpliftSection({ chart, viewMode, setViewMode }) {
               <tr>
                 <th scope="row">Uplift</th>
                 {chart.map((r) => (
-                  <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "—"}</td>
+                  <td key={r.week} data-label={`Week ${r.week}`}>{r.mde != null ? `${r.mde}%` : "-"}</td>
                 ))}
               </tr>
             </tbody>
@@ -904,7 +904,7 @@ function AllocationEditor({ alloc, setAlloc, labels, idPrefix }) {
       </div>
       {bad && (
         <div className="field-error" role="alert">
-          Allocation must add up to 100% — currently {sum.toFixed(1)}%.
+          Allocation must add up to 100% - currently {sum.toFixed(1)}%.
         </div>
       )}
     </div>
@@ -937,7 +937,7 @@ function SrmBanner({ srm }) {
       </div>
       <p>
         This is known as a sample ratio mismatch. It usually points to a setup issue rather than
-        user behaviour — common causes are redirect bugs, bot filtering that treats variants
+        user behaviour - common causes are redirect bugs, bot filtering that treats variants
         differently, or lost tracking on one variant. The groups may not be comparable, so the
         results below may be unreliable. Worth checking the implementation before acting on them.
       </p>
@@ -989,26 +989,31 @@ function PlanningDataSource({ value, onChange }) {
   );
 }
 
-function MetricSelector({ preTab, setPreTab, revMetric, setRevMetric }) {
+function MetricSelector({ currentTab, setTab, revMetric, setRevMetric, mode }) {
+  const isPre = mode === 'pre';
   return (
     <div className="metric-selector-flow">
-      <h3 className="flow-title">Which metric would you like to use to calculate sample size?</h3>
-      <div className="choice-row" style={{ marginBottom: preTab === 'revenue' ? '20px' : '0' }}>
-        <button type="button" className={`choice-opt ${preTab === 'cvr' ? 'choice-opt-on' : ''}`}
-          onClick={() => setPreTab('cvr')}>
+      <h3 className="flow-title">
+        {isPre 
+          ? "Which metric would you like to use to calculate sample size?" 
+          : "Which metric are you analysing?"}
+      </h3>
+      <div className="choice-row" style={{ marginBottom: currentTab === 'revenue' ? '20px' : '0' }}>
+        <button type="button" className={`choice-opt ${currentTab === 'cvr' ? 'choice-opt-on' : ''}`}
+          onClick={() => setTab('cvr')}>
           <span className="choice-title">Conversion rate</span>
           <span className="choice-desc">e.g. clicks, signups, orders</span>
         </button>
-        <button type="button" className={`choice-opt ${preTab === 'revenue' ? 'choice-opt-on' : ''}`}
-          onClick={() => setPreTab('revenue')}>
+        <button type="button" className={`choice-opt ${currentTab === 'revenue' ? 'choice-opt-on' : ''}`}
+          onClick={() => setTab('revenue')}>
           <span className="choice-title">Revenue figure</span>
           <span className="choice-desc">e.g. RPV, AOV, total revenue</span>
         </button>
       </div>
 
-      {preTab === 'revenue' && (
+      {currentTab === 'revenue' && (
         <div className="revenue-sub-options animated-fade-in">
-          <Field label="Which specific revenue metric are you tracking?" htmlFor="rev-metric-select">
+          <Field label={isPre ? "Which specific revenue metric are you tracking?" : "Which specific revenue metric did you track?"} htmlFor="rev-metric-select">
             <select
               id="rev-metric-select"
               className="input select"
@@ -1017,9 +1022,13 @@ function MetricSelector({ preTab, setPreTab, revMetric, setRevMetric }) {
             >
               <option value="rpv">Revenue per visitor (RPV)</option>
               <option value="aov">Average order value (AOV)</option>
-              <option value="margin">Margin</option>
-              <option value="total">Total revenue from test</option>
-              <option value="notsure">Not sure</option>
+              {isPre && (
+                <>
+                  <option value="margin">Margin</option>
+                  <option value="total">Total revenue from test</option>
+                  <option value="notsure">Not sure</option>
+                </>
+              )}
             </select>
             <div className="field-hint">
               {revMetric === 'rpv' && "Measures total revenue divided by all visitors. Best for overall business impact."}
@@ -1070,10 +1079,10 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
   const perWeekFactor = period === "day" ? 7 : period === "month" ? 12 / 52 : 1;
   const wk = trafficNum * perWeekFactor; // visitors per week, internal
   const mdeAbs = p1 * mdeRel; // absolute (proportion) equivalent for display
-  if (!(p1 > 0 && p1 < 1)) errors.baseline = "Enter a baseline conversion rate between 0 and 100 (exclusive).";
-  if (!(mdeRel > 0)) errors.mde = "Enter a relative uplift greater than 0.";
-  else if (p1 * (1 + mdeRel) >= 1) errors.mde = "Baseline plus this uplift would exceed 100% — lower one of them.";
-  if (!(trafficNum > 0)) errors.traffic = "Enter a number of visitors greater than 0.";
+  if (baseline !== "" && !(p1 > 0 && p1 < 1)) errors.baseline = "Enter a baseline conversion rate between 0 and 100 (exclusive).";
+  if (mde !== "" && !(mdeRel > 0)) errors.mde = "Enter a relative uplift greater than 0.";
+  else if (baseline !== "" && mde !== "" && p1 * (1 + mdeRel) >= 1) errors.mde = "Baseline plus this uplift would exceed 100% - lower one of them.";
+  if (traffic !== "" && !(trafficNum > 0)) errors.traffic = "Enter a number of visitors greater than 0.";
   const allocSum = alloc.reduce((a, b) => a + (Number(b) || 0), 0);
   const allocOk = Math.abs(allocSum - 100) <= 0.5 && alloc.every((a) => Number(a) > 0);
 
@@ -1161,7 +1170,7 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-k" />
         {k >= 3 && (
           <p className="note">
-            Testing {comparisons} variants against control — the sample sizes below already include
+            Testing {comparisons} variants against control - the sample sizes below already include
             <Explainer id="holm" inline label="the correction this needs" />, so the duration estimate is honest for a multi-variant test.
           </p>
         )}
@@ -1198,7 +1207,7 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
           <ExportButtons
             onCsv={() => {
               const rows = [
-                ["Eclipse — Test planning", ""],
+                ["Eclipse - Test planning", ""],
                 ["Generated", new Date().toLocaleString("en-GB")],
                 [],
                 ["Inputs", ""],
@@ -1237,7 +1246,7 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
                 `Estimated duration: ${result.days} ${result.days === 1 ? "day" : "days"} (${result.weeks} ${result.weeks === 1 ? "week" : "weeks"})`,
               ]},
               { heading: "Detectable relative uplift by duration", lines:
-                result.chart.map(c => `Week ${c.week}: ${c.mde != null ? c.mde + "%" : "—"}`) },
+                result.chart.map(c => `Week ${c.week}: ${c.mde != null ? c.mde + "%" : "-"}`) },
             ])}
           />
         )}
@@ -1262,7 +1271,7 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
             {result.weeks < 2 && (
               <p className="note">
                 This plan completes in under 2 weeks. Behaviour varies across the week
-                (weekday vs weekend, pay cycles) — running at least 1–2 full weeks is recommended
+                (weekday vs weekend, pay cycles) - running at least 1–2 full weeks is recommended
                 regardless.
               </p>
             )}
@@ -1274,7 +1283,7 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
   );
 }
 
-/* Expandable "show the working" detail — z-test internals + distribution chart */
+/* Expandable "show the working" detail - z-test internals + distribution chart */
 function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
   const [dataSource, setDataSource] = useState("manual");
   const [cv, setCv] = useState("1.5");
@@ -1340,9 +1349,9 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
   const perWeekFactor = period === "day" ? 7 : period === "month" ? 12 / 52 : 1;
   const wk = trafficNum * perWeekFactor;
   
-  if (!(cvNum > 0)) errors.cv = "Enter a coefficient of variation greater than 0.";
-  if (!(mdeRel > 0)) errors.mde = "Enter a relative uplift greater than 0.";
-  if (!(trafficNum > 0)) errors.traffic = "Enter a number of visitors greater than 0.";
+  if (cv !== "" && !(cvNum > 0)) errors.cv = "Enter a coefficient of variation greater than 0.";
+  if (mde !== "" && !(mdeRel > 0)) errors.mde = "Enter a relative uplift greater than 0.";
+  if (traffic !== "" && !(trafficNum > 0)) errors.traffic = "Enter a number of visitors greater than 0.";
   const allocSum = alloc.reduce((a, b) => a + (Number(b) || 0), 0);
   const allocOk = Math.abs(allocSum - 100) <= 0.5 && alloc.every((a) => Number(a) > 0);
 
@@ -1502,7 +1511,7 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
           <ExportButtons
             onCsv={() => {
               const rows = [
-                [`Eclipse — ${metricLabel} planning`, ""],
+                [`Eclipse - ${metricLabel} planning`, ""],
                 ["Generated", new Date().toLocaleString("en-GB")],
                 [],
                 ["Inputs", ""],
@@ -1539,7 +1548,7 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
                   `Estimated duration: ${result.days} ${result.days === 1 ? "day" : "days"} (${result.weeks} ${result.weeks === 1 ? "week" : "weeks"})`,
                 ]},
                 { heading: "Detectable relative uplift by duration", lines:
-                  result.chart.map(c => `Week ${c.week}: ${c.mde != null ? c.mde + "%" : "—"}`) },
+                  result.chart.map(c => `Week ${c.week}: ${c.mde != null ? c.mde + "%" : "-"}`) },
               ]);
             }}
           />
@@ -1565,7 +1574,7 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
             {result.weeks < 2 && (
               <p className="note">
                 This plan completes in under 2 weeks. Behaviour varies across the week
-                (weekday vs weekend, pay cycles) — running at least 1–2 full weeks is recommended
+                (weekday vs weekend, pay cycles) - running at least 1–2 full weeks is recommended
                 regardless.
               </p>
             )}
@@ -1616,7 +1625,7 @@ function DistributionChart({ comparisons }) {
         </LineChart>
       </ResponsiveContainer>
       <p className="chart-caption">
-        Expected spread of each variant's true conversion rate. The more the curves overlap, the harder it is to tell them apart — wide separation is what makes a result significant.
+        Expected spread of each variant's true conversion rate. The more the curves overlap, the harder it is to tell them apart - wide separation is what makes a result significant.
       </p>
     </div>
   );
@@ -1702,10 +1711,10 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   
   const meaning = meaningOverride || (
     kind === "winner"
-      ? `The difference is large enough to be a real effect, not random fluctuation — ${who} ${metricNoun} ${betterTxt} than Variant A.`
+      ? `The difference is large enough to be a real effect, not random fluctuation - ${who} ${metricNoun} ${betterTxt} than Variant A.`
       : kind === "loser"
-      ? `The difference is large enough to be a real effect, not random fluctuation — ${who} ${metricNoun} ${worseTxt} than Variant A.`
-      : `There's not enough evidence yet to be sure this is a real difference — it could still be random fluctuation.`);
+      ? `The difference is large enough to be a real effect, not random fluctuation - ${who} ${metricNoun} ${worseTxt} than Variant A.`
+      : `There's not enough evidence yet to be sure this is a real difference - it could still be random fluctuation.`);
 
   return (
     <article className={`result-card-v2 v2-${kind}`}>
@@ -1715,7 +1724,7 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
           <h4 className="v2-title">{name}</h4>
         </div>
         <div className="v2-conf-pill">
-          <span className="v2-conf-val">{confValue != null ? `${confValue.toFixed(1)}%` : "—"}</span>
+          <span className="v2-conf-val">{confValue != null ? `${confValue.toFixed(1)}%` : "-"}</span>
           <span className="v2-conf-label">Confidence</span>
         </div>
       </div>
@@ -1763,7 +1772,7 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
             </div>
             <div className="v2-d-col">
               <span className="v2-d-label">{zScore?.label || "Z-score"}</span>
-              <span className="v2-d-val">{zScore?.value != null ? zScore.value.toFixed(4) : "—"}</span>
+              <span className="v2-d-val">{zScore?.value != null ? zScore.value.toFixed(4) : "-"}</span>
             </div>
             {ciBase && (
               <div className="v2-d-col">
@@ -1816,7 +1825,7 @@ function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw
     ? `At the ${confPct}% confidence level, you can be confident ${name} is not worse than control by more than your ${fmtPct(marginRel)} margin.`
     : (kind === "loser"
         ? `${name} appears to be worse than control by more than your ${fmtPct(marginRel)} margin.`
-        : `Not enough evidence to confirm ${name} stays within your ${fmtPct(marginRel)} margin. This doesn't mean it's worse — only that the data can't rule out a drop bigger than the margin.`);
+        : `Not enough evidence to confirm ${name} stays within your ${fmtPct(marginRel)} margin. This doesn't mean it's worse - only that the data can't rule out a drop bigger than the margin.`);
 
   return (
     <article className={`result-card-v2 v2-${kind}`}>
@@ -1943,7 +1952,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="cvr-h">
-        <p className="field-hint">Raw counts only — conversion rates are calculated for you.</p>
+        <p className="field-hint">Raw counts only - conversion rates are calculated for you.</p>
 
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="cvr-k" />
 
@@ -1953,9 +1962,10 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
           value={question}
           onChange={setQuestion}
           options={[
-            { value: "better", label: "Is the variant better?" },
-            { value: "noninf", label: "Is it not worse?" },
+            { value: "better", label: "Standard A/B test" },
+            { value: "noninf", label: "Non-inferiority test" },
           ]}
+          explainerId="noninf"
         />
         {!isNonInf && (
           <SegControl
@@ -1970,14 +1980,14 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
           />
         )}
         {isNonInf && (
-          <>
-            <Field label="Acceptable margin (relative drop you can live with, %)" htmlFor="cvr-margin"
+          <div className="animated-fade-in">
+            <Field label="Acceptable non-inferiority margin (relative drop, %)" htmlFor="cvr-margin"
               explainerId="noninf"
               hint="Example: 1% means you'll accept the variant as long as it isn't more than 1% below control.">
               <input id="cvr-margin" className="input" type="number" min="0" step="0.1"
                 value={marginPct} onChange={(e) => setMarginPct(e.target.value)} />
             </Field>
-          </>
+          </div>
         )}
 
         {rows.map((r, i) => {
@@ -2000,7 +2010,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
                 <div className="field">
                   <span className="field-label">Conversion rate</span>
                   <output className="cvr-readout num" htmlFor={`cvr-v-${i} cvr-c-${i}`}>
-                    {cvr != null ? fmtPct(cvr) : "—"}
+                    {cvr != null ? fmtPct(cvr) : "-"}
                   </output>
                 </div>
               </div>
@@ -2010,7 +2020,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
         })}
 
         <Field label="Planned traffic split (for the traffic split check)" htmlFor={undefined} explainerId="srm"
-          hint="Defaults to an equal split — change it if your experiment was set up with an unequal split.">
+          hint="Defaults to an equal split - change it if your experiment was set up with an unequal split.">
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="cvr" />
         </Field>
 
@@ -2038,7 +2048,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
         <div className="results-head">
           <h2 id="cvr-r" className="panel-title">Results</h2>
           <div className="test-chip-row">
-            <div className="test-pill">{isNonInf ? "One-tailed" : (twoTailed ? "Two-tailed" : "One-tailed")}</div>
+            <div className="test-pill">{isNonInf ? "Non-inferiority" : (twoTailed ? "Two-tailed" : "One-tailed")}</div>
             <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
             {isNonInf && <div className="test-pill">{fmtPct(marginRel)} margin</div>}
             {!isNonInf && corrected && <div className="test-pill">Multi-variant corrected</div>}
@@ -2048,7 +2058,7 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
           <ExportButtons
             onCsv={() => {
               const head = [
-                ["Eclipse — Conversion rate analysis", ""],
+                ["Eclipse - Conversion rate analysis", ""],
                 ["Generated", new Date().toLocaleString("en-GB")],
                 ["Test type", isNonInf ? `Non-inferiority (margin ${fmtPct(marginRel)})` : `Z-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}`],
                 ["Confidence", `${Math.round(confidence*100)}%`],
@@ -2085,16 +2095,16 @@ function PostCvr({ confidence, twoTailed, k, rows, setRows, alloc, setAlloc, set
                   isNonInf ? `Non-inferiority test, margin ${fmtPct(marginRel)}` : `Z-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}`,
                   `Confidence: ${Math.round(confidence*100)}%`,
                   !isNonInf ? `Goal: ${currentGoal === "decrease" ? "Decrease is a winner" : "Increase is a winner"}` : "",
-                  srm ? (srm.flagged ? `SRM check: FLAGGED (p=${fmtP(srm.p)}) — results may be unreliable` : `SRM check: healthy (p=${fmtP(srm.p)})`) : "",
+                  srm ? (srm.flagged ? `SRM check: FLAGGED (p=${fmtP(srm.p)}) - results may be unreliable` : `SRM check: healthy (p=${fmtP(srm.p)})`) : "",
                 ].filter(Boolean)},
                 { heading: "Data", lines: currentParsed.map((r, i) => `${currentLabels[i]}: ${fmtInt(r.v)} visitors, ${fmtInt(r.c)} conversions (CVR ${fmtPct(r.c/r.v)})`) },
                 { heading: "Results", lines: isNonInf
-                  ? currentNoninfResults?.map(r => `${r.name} vs Variant A: relative diff ${fmtSignedPct(r.relDiff)} — ${(r.pRaw < 1 - confidence) ? "Non-inferiority confirmed" : (r.upperBound < -r.margin ? "Worse than margin" : "Not confirmed")}`)
+                  ? currentNoninfResults?.map(r => `${r.name} vs Variant A: relative diff ${fmtSignedPct(r.relDiff)} - ${(r.pRaw < 1 - confidence) ? "Non-inferiority confirmed" : (r.upperBound < -r.margin ? "Worse than margin" : "Not confirmed")}`)
                   : currentResults?.map(r => { 
                       const dp = corrected ? r.pAdj : r.pRaw; 
                       const isWin = currentGoal === "decrease" ? r.relUplift < 0 : r.relUplift > 0;
                       const verdict = (dp < 1 - confidence) ? (isWin ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant";
-                      return `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)} uplift, p=${fmtP(r.pRaw)}${corrected ? ` (corrected ${fmtP(r.pAdj)})` : ""}, ${Math.min(99.9,(1-dp)*100).toFixed(1)}% confidence — ${verdict}`; 
+                      return `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)} uplift, p=${fmtP(r.pRaw)}${corrected ? ` (corrected ${fmtP(r.pAdj)})` : ""}, ${Math.min(99.9,(1-dp)*100).toFixed(1)}% confidence - ${verdict}`; 
                     }) },
               ]);
             }}
@@ -2407,9 +2417,9 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     }
 
     let visitorsError = null;
-    if (vRaw === '') visitorsError = 'Enter visitors — needed for revenue per visitor.';
+    if (vRaw === '') visitorsError = 'Enter visitors - needed for revenue per visitor.';
     else if (!visitorsOk) visitorsError = 'Visitors must be a whole number greater than 0.';
-    else if (orderCount > visitors) visitorsError = `More orders (${fmtInt(orderCount)}) than visitors (${fmtInt(visitors)}) — check the visitor count.`;
+    else if (orderCount > visitors) visitorsError = `More orders (${fmtInt(orderCount)}) than visitors (${fmtInt(visitors)}) - check the visitor count.`;
 
     return { name: nm, visitors, visitorsOk: !visitorsError, visitorsError,
              orders, orderCount, fp, mismatch, numCols: fp ? fp.numCols : 1 };
@@ -2494,12 +2504,12 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="rev-k" />
 
         <Field label="Planned traffic split" htmlFor={undefined} explainerId="srm"
-          hint="Defaults to an equal split — change it if your experiment used an unequal split (e.g. 30/70).">
+          hint="Defaults to an equal split - change it if your experiment used an unequal split (e.g. 30/70).">
           <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="rev" />
         </Field>
 
         <h3 className="block-title">Traffic & Conversions per variant</h3>
-        <p className="field-hint">Pulled from the Conversion rate tab if entered there — edit here to fix mismatches with your files.</p>
+        <p className="field-hint">Pulled from the Conversion rate tab if entered there - edit here to fix mismatches with your files.</p>
         <div className="traffic-block-v2">
           {armData.map((a, i) => (
             <div key={i} className="traffic-arm">
@@ -2552,7 +2562,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               <label htmlFor={`rev-file-${i}`} className={`upload-label ${a.fp ? 'upload-label-filled' : ''}`}>
                 <span className="upload-icon" aria-hidden="true">{a.fp ? <FileIcon /> : <UploadIcon />}</span>
                 <span className="upload-cta">{a.fp ? a.fp.name : 'Choose file'}</span>
-                <span className="upload-sub">{a.fp ? `${fmtInt(a.orderCount)} orders detected — click to replace` : 'CSV or text file'}</span>
+                <span className="upload-sub">{a.fp ? `${fmtInt(a.orderCount)} orders detected - click to replace` : 'CSV or text file'}</span>
               </label>
               <div id={`rev-file-hint-${i}`} className="upload-fmt">
                 One row per transaction · order value in the last column · header row and transaction ID column both fine
@@ -2638,7 +2648,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
           <ExportButtons
             onCsv={() => {
               const rows = [
-                ["Eclipse — Revenue analysis", ""],
+                ["Eclipse - Revenue analysis", ""],
                 ["Generated", new Date().toLocaleString("en-GB")],
                 ["Test type", `Welch's t-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}${winsorize ? `, outliers capped at ${outlierPct * 100}th pct` : ""}`],
                 ["Confidence", `${Math.round(confidence*100)}%`],
@@ -2672,9 +2682,9 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 ].filter(Boolean)},
                 { heading: "Data", lines: currentAnalysis.armStats.map(a => `${a.name}: ${fmtInt(a.rpv.n)} visitors, ${fmtInt(a.aov.n)} orders, RPV ${fmtMoney(a.rpv.m)}, AOV ${fmtMoney(a.aov.m)}`) },
                 { heading: "Revenue per visitor", lines: currentAnalysis.rpv.map(r =>
-                  `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)}, p=${fmtP(r.pAdj)} — ${(r.pAdj < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`) },
+                  `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)}, p=${fmtP(r.pAdj)} - ${(r.pAdj < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`) },
                 { heading: "Average order value", lines: currentAnalysis.aov.map(r =>
-                  `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)}, p=${fmtP(r.pAdj)} — ${(r.pAdj < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`) },
+                  `${r.name} vs Variant A: ${fmtSignedPct(r.relUplift)}, p=${fmtP(r.pAdj)} - ${(r.pAdj < 1 - confidence) ? (r.relUplift > 0 ? "Significant winner" : (twoTailed ? "Significant loser" : "Not significant")) : "Not significant"}`) },
               ]);
             }}
           />
@@ -2708,8 +2718,8 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   skewVerdict={analysis.armStats[i+1].rpv.skew}
                   meaningOverride={
                     (corrected ? r.pAdj : r.pRaw) < 1 - confidence
-                      ? `The difference is large enough to be a real effect, not random fluctuation — ${r.name} ${r.relUplift >= 0 ? "generated more" : "generated less"} revenue per visitor than Variant A.`
-                      : "There's not enough evidence yet to be sure this is a real difference in revenue per visitor — it could still be random fluctuation."
+                      ? `The difference is large enough to be a real effect, not random fluctuation - ${r.name} ${r.relUplift >= 0 ? "generated more" : "generated less"} revenue per visitor than Variant A.`
+                      : "There's not enough evidence yet to be sure this is a real difference in revenue per visitor - it could still be random fluctuation."
                   }
                 />
               ))}
@@ -2734,8 +2744,8 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   skewVerdict={analysis.armStats[i+1].aov.skew}
                   meaningOverride={
                     (corrected ? r.pAdj : r.pRaw) < 1 - confidence
-                      ? `The difference is large enough to be a real effect, not random fluctuation — among buyers, ${r.name} had a ${r.relUplift >= 0 ? "higher" : "lower"} average order value than Variant A.`
-                      : "There's not enough evidence yet to be sure this is a real difference in average order value — it could still be random fluctuation."
+                      ? `The difference is large enough to be a real effect, not random fluctuation - among buyers, ${r.name} had a ${r.relUplift >= 0 ? "higher" : "lower"} average order value than Variant A.`
+                      : "There's not enough evidence yet to be sure this is a real difference in average order value - it could still be random fluctuation."
                   }
                 />
               ))}
@@ -2847,95 +2857,82 @@ export default function EclipseCalculator() {
         <button type="button" className={`tab ${mode === "pre" ? "tab-on" : ""}`}
           aria-pressed={mode === "pre"} onClick={() => setMode("pre")}>
           Plan a test
-          <span className="tab-sub">Sample size &amp; duration</span>
+          <span className="tab-sub">Sample size & duration</span>
         </button>
         <button type="button" className={`tab ${mode === "post" ? "tab-on" : ""}`}
           aria-pressed={mode === "post"} onClick={() => setMode("post")}>
           Analyse results
-          <span className="tab-sub">Significance &amp; uplift</span>
+          <span className="tab-sub">Significance & uplift</span>
         </button>
       </nav>
 
-      <section className="settings" aria-label="Statistical settings" key={`settings-${mode}-${postTab}`}>
-        <SegControl
-          legend="Confidence level"
-          name="conf"
-          value={confidence}
-          onChange={setConfidence}
-          explainerId="confidence"
-          options={[
-            { value: 0.9, label: "90%" },
-            { value: 0.95, label: "95%" },
-            { value: 0.99, label: "99%" },
-          ]}
+      <div className="calculator-container" style={{ maxWidth: '1080px', margin: '24px auto 0' }}>
+        <MetricSelector 
+          currentTab={mode === 'pre' ? preTab : postTab} 
+          setTab={mode === 'pre' ? setPreTab : setPostTab} 
+          revMetric={revMetric} 
+          setRevMetric={setRevMetric} 
+          mode={mode}
         />
-        <SegControl
-          legend="Tails"
-          name="tails"
-          value={tails}
-          onChange={setTails}
-          explainerId="tailed"
-          options={[
-            { value: "two", label: "Two-tailed" },
-            { value: "one", label: "One-tailed" },
-          ]}
-        />
-        <SegControl
-          legend="Statistical power"
-          name="power-global"
-          value={power}
-          onChange={setPower}
-          explainerId="power"
-          options={[
-            { value: 0.7, label: "70%" },
-            { value: 0.8, label: "80%" },
-            { value: 0.9, label: "90%" },
-          ]}
-        />
-      </section>
 
-      {mode === "pre" && (
-        <div className="pre-planning-container" style={{ maxWidth: '1080px', margin: '24px auto 0' }}>
-          <MetricSelector 
-            preTab={preTab} 
-            setPreTab={setPreTab} 
-            revMetric={revMetric} 
-            setRevMetric={setRevMetric} 
+        <section className="settings" aria-label="Statistical settings" key={`settings-${mode}-${postTab}`} style={{ marginTop: '24px' }}>
+          <SegControl
+            legend="Confidence level"
+            name="conf"
+            value={confidence}
+            onChange={setConfidence}
+            explainerId="confidence"
+            options={[
+              { value: 0.9, label: "90%" },
+              { value: 0.95, label: "95%" },
+              { value: 0.99, label: "99%" },
+            ]}
           />
-          <div style={{ marginTop: '24px' }}>
-            {preTab === "cvr" 
+          <SegControl
+            legend="Tails"
+            name="tails"
+            value={tails}
+            onChange={setTails}
+            explainerId="tailed"
+            options={[
+              { value: "two", label: "Two-tailed" },
+              { value: "one", label: "One-tailed" },
+            ]}
+          />
+          <SegControl
+            legend="Statistical power"
+            name="power-global"
+            value={power}
+            onChange={setPower}
+            explainerId="power"
+            options={[
+              { value: 0.7, label: "70%" },
+              { value: 0.8, label: "80%" },
+              { value: 0.9, label: "90%" },
+            ]}
+          />
+        </section>
+
+        <div style={{ marginTop: '24px' }}>
+          {mode === "pre" ? (
+            preTab === "cvr" 
               ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} />
               : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} revMetric={revMetric} />
-            }
-          </div>
+          ) : (
+            postTab === "cvr"
+              ? <PostCvr key="cvr" confidence={confidence} twoTailed={twoTailed}
+                k={k} rows={rows} setRows={setRows}
+                alloc={alloc} setAlloc={setAlloc}
+                setVariantCount={setVariantCount}
+                durationDays={durationDays} setDurationDays={setDurationDays} />
+              : <PostRevenue key="rev" confidence={confidence} twoTailed={twoTailed}
+                k={k} rows={rows}
+                alloc={alloc} setAlloc={setAlloc}
+                setVariantCount={setVariantCount}
+                durationDays={durationDays} setDurationDays={setDurationDays} />
+          )}
         </div>
-      )}
-
-      {mode === "post" && (
-        <>
-          <nav className="sub-tabs" aria-label="Metric">
-            <button type="button" className={`subtab ${postTab === "cvr" ? "subtab-on" : ""}`}
-              aria-pressed={postTab === "cvr"} onClick={() => setPostTab("cvr")}>
-              Conversion rate
-            </button>
-            <button type="button" className={`subtab ${postTab === "revenue" ? "subtab-on" : ""}`}
-              aria-pressed={postTab === "revenue"} onClick={() => setPostTab("revenue")}>
-              Revenue per visitor &amp; AOV
-            </button>
-          </nav>
-          {postTab === "cvr"
-            ? <PostCvr key="cvr" confidence={confidence} twoTailed={twoTailed}
-              k={k} rows={rows} setRows={setRows}
-              alloc={alloc} setAlloc={setAlloc}
-              setVariantCount={setVariantCount}
-              durationDays={durationDays} setDurationDays={setDurationDays} />
-            : <PostRevenue key="rev" confidence={confidence} twoTailed={twoTailed}
-              k={k} rows={rows}
-              alloc={alloc} setAlloc={setAlloc}
-              setVariantCount={setVariantCount}
-              durationDays={durationDays} setDurationDays={setDurationDays} />}
-        </>
-      )}
+      </div>
 
       <FaqSection />
     </div>
@@ -3053,18 +3050,16 @@ const CSS = `
 [data-theme='dark'] .theme-toggle:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
 
 /* tabs */
-.mode-tabs{max-width:1080px;margin:26px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;}
+.mode-tabs{max-width:1080px;margin:26px auto 0;display:grid;grid-template-columns:1fr 1fr;gap:18px;}
 .tab{text-align:left;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);padding:16px 20px;cursor:pointer;box-shadow:var(--shadow);
   font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:17px;color:var(--ink);line-height:1.2;transition:all .15s;}
-.tab:hover{border-color:var(--purple);background:var(--purple-soft);}
-[data-theme='dark'] .tab:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
+.tab:hover:not(.tab-on){border-color:var(--purple);background:var(--purple-soft);filter:brightness(0.98);}
+[data-theme='dark'] .tab:hover:not(.tab-on){border-color:var(--purple-bright);background:rgba(255,255,255,0.05);filter:none;}
 @media (max-width:880px){
   .mode-tabs{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;}
   .tab{flex:1;min-width:0;width:100%;padding:12px 16px;}
 }
-.tab:hover{border-color:var(--purple);background:var(--purple-soft);}
-[data-theme='dark'] .tab:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
 .tab-sub{display:block;font-family:'Inter',sans-serif;font-weight:400;
   font-size:13px;color:var(--muted);margin-top:3px;}
 [data-theme='dark'] .tab-sub{color:var(--muted);}
@@ -3072,12 +3067,13 @@ const CSS = `
 [data-theme='dark'] .tab-on{background:var(--purple-bright);color:var(--navy);border-color:transparent;}
 .tab-on .tab-sub{color:rgba(255,255,255,.85);}
 [data-theme='dark'] .tab-on .tab-sub{color:rgba(0,0,0,0.6);}
-.sub-tabs{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;}
+.tab-on:hover{opacity:0.9;}
+.sub-tabs{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:1fr 1fr;gap:18px;}
 .subtab{background:var(--card);border:1px solid var(--line);border-radius:999px;
   padding:9px 16px;font-size:13.5px;font-weight:600;color:var(--ink);cursor:pointer;
   font-family:'Inter',sans-serif;box-shadow:var(--shadow);white-space:nowrap;text-align:center;transition:all .15s;}
-.subtab:hover{border-color:var(--pink);background:var(--pink-soft);}
-[data-theme='dark'] .subtab:hover{border-color:var(--pink);background:rgba(255,255,255,0.05);}
+.subtab:hover:not(.subtab-on){border-color:var(--pink);background:var(--pink-soft);filter:brightness(0.98);}
+[data-theme='dark'] .subtab:hover:not(.subtab-on){border-color:var(--pink);background:rgba(255,255,255,0.05);filter:none;}
 @media (max-width:880px){
   .sub-tabs{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:4px;}
   .sub-tabs::-webkit-scrollbar{display:none;}
@@ -3085,6 +3081,7 @@ const CSS = `
 }
 .subtab-on{border-color:var(--pink);background:var(--pink-soft);color:var(--pink-deep);}
 [data-theme='dark'] .subtab-on{border-color:var(--pink);background:var(--pink-soft);color:var(--pink-deep);box-shadow:0 0 0 1px var(--pink);}
+.subtab-on:hover{opacity:0.9;}
 [data-theme='dark'] .subtab-on:focus-visible{
   border-color:var(--pink);background:var(--pink-soft);color:var(--pink-deep);}
 .subtab-on:focus-visible{outline-color:var(--pink);}
@@ -3102,15 +3099,16 @@ const CSS = `
 .seg-opt{padding:6px 16px;font-size:14px;cursor:pointer;color:var(--muted);
   border-radius:999px;display:flex;align-items:center;font-weight:600;position:relative;transition:all .15s;}
 [data-theme='dark'] .seg-opt{color:var(--muted);}
-.seg-opt:hover{background:var(--purple-soft);}
-[data-theme='dark'] .seg-opt:hover{background:rgba(255,255,255,0.05);}
+.seg-opt:hover{background:var(--purple-soft);filter:brightness(0.98);}
+[data-theme='dark'] .seg-opt:hover{background:rgba(255,255,255,0.05);filter:none;}
 .seg-opt input{position:absolute;opacity:0;pointer-events:none;}
 .seg-opt:has(:focus-visible){outline:3px solid var(--pink);outline-offset:1px;}
 .seg-on{background:var(--purple-active);color:#fff;}
 [data-theme='dark'] .seg-on{background:var(--purple-bright);color:var(--navy);box-shadow:0 0 0 1px var(--purple-bright);}
 
 /* layout */
-.two-col{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:minmax(0, 1fr) minmax(0, 1.15fr);gap:18px;align-items:start;}
+.two-col{max-width:1080px;margin:18px auto 0;display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start;}
+.pre-planning-container .two-col{grid-template-columns:1fr 1fr;gap:18px;}
 .two-col > *{min-width:0;max-width:100%;}
 .two-col .results{position:sticky;top:16px;min-width:0;}
 @media (max-width:880px){
@@ -3178,12 +3176,12 @@ const CSS = `
 [data-theme='dark'] .badge-soon{background:var(--purple-soft);color:var(--purple-bright);border:1px solid var(--purple-bright);}
 .animated-fade-in{animation:fadeIn .3s ease-out;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
-.choice-row{display:flex;gap:12px;margin-bottom:24px;flex-wrap:wrap;}
+.choice-row{display:flex;gap:18px;margin-bottom:24px;flex-wrap:wrap;}
 .choice-opt{flex:1;min-width:140px;background:var(--card);border:1.5px solid var(--line);
   border-radius:12px;padding:14px;cursor:pointer;transition:all .15s;text-align:left;position:relative;
   font-family:inherit;}
-.choice-opt:hover{border-color:var(--purple);background:var(--purple-soft);}
-[data-theme='dark'] .choice-opt:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);}
+.choice-opt:hover{border-color:var(--purple);background:var(--purple-soft);filter:brightness(0.98);}
+[data-theme='dark'] .choice-opt:hover{border-color:var(--purple-bright);background:rgba(255,255,255,0.05);filter:none;}
 .choice-opt-on{border-color:var(--purple);background:var(--purple-soft);box-shadow:0 0 0 1px var(--purple);}
 [data-theme='dark'] .choice-opt-on{background:var(--purple-soft);border-color:var(--purple-bright);box-shadow:0 0 0 1px var(--purple-bright);}
 .choice-title{display:block;font-weight:600;font-size:14px;color:var(--navy);margin-bottom:4px;}
@@ -3301,23 +3299,23 @@ const CSS = `
 [data-theme='dark'] .explainer-toggle{color:var(--ink);}
 .explainer-label-text{text-decoration:underline dotted var(--muted);text-underline-offset:3px;}
 [data-theme='dark'] .explainer-label-text{text-decoration-color:var(--muted);}
-.exp-ring{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;
-  background:var(--purple-soft);border:1px solid var(--line);border-radius:50%;font-size:10px;
-  flex:none;color:var(--purple);font-weight:700;line-height:1;margin-top:-1px;}
+.exp-ring{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;
+  background:var(--purple-soft);border:1px solid var(--line);border-radius:50%;font-size:11px;
+  flex:none;color:var(--purple);font-weight:700;line-height:1;margin-top:-1px;padding:0;}
 [data-theme='dark'] .exp-ring{background:var(--purple-soft);color:var(--purple-deep);border-color:var(--purple-bright);}
 .explainer-body{position:fixed;z-index:1000;background:var(--card);
-  border:1px solid var(--line);padding:14px 16px;font-size:13.5px;border-radius:12px;
-  box-shadow:var(--shadow);width:260px;color:var(--ink);text-align:left;
-  max-width:calc(100vw - 24px);}
+  border:1px solid var(--line);padding:16px 20px;font-size:14px;border-radius:12px;
+  box-shadow:var(--shadow);width:280px;color:var(--ink);text-align:left;
+  max-width:calc(100vw - 24px);font-weight:400;line-height:1.6;}
 [data-theme='dark'] .explainer-body{background:var(--card);border-color:var(--line);box-shadow:0 8px 32px rgba(0,0,0,0.8);}
-@media (max-width:480px){.explainer-body{width:220px;}}
-.exp-title{font-weight:700;margin-bottom:6px;color:var(--navy);font-size:14px;}
+@media (max-width:480px){.explainer-body{width:240px;}}
+.exp-title{font-weight:700;margin-bottom:8px;color:var(--navy);font-size:15px;}
 [data-theme='dark'] .exp-title{color:var(--purple-bright);}
-.exp-lead{margin:0 0 8px;line-height:1.4;}
+.exp-lead{margin:0 0 10px;line-height:1.6;font-weight:400;}
 [data-theme='dark'] .exp-lead{color:var(--ink);}
-.exp-bullets{margin:0 0 8px;padding-left:18px;display:flex;flex-direction:column;gap:5px;line-height:1.4;}
-.exp-bullets li{padding-left:2px;}
-.exp-foot{margin:8px 0 0;font-size:12.5px;color:var(--muted);border-top:1px solid var(--line);padding-top:8px;}
+.exp-bullets{margin:0 0 10px;padding-left:20px;display:flex;flex-direction:column;gap:6px;line-height:1.6;font-weight:400;}
+.exp-bullets li{padding-left:4px;}
+.exp-foot{margin:10px 0 0;font-size:13px;color:var(--muted);border-top:1px solid var(--line);padding-top:10px;line-height:1.5;font-weight:400;}
 [data-theme='dark'] .exp-foot{color:var(--muted);}
 
 /* fields */
