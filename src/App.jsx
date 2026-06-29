@@ -2176,8 +2176,22 @@ function rpvStats(orders, visitors) {
   return { m, s: Math.sqrt(variance), n: visitors };
 }
 
+function stripInlineComment(raw) {
+  return String(raw ?? "").trim().replace(/\s*(#|\/\/).*$/u, "").trim();
+}
+
+function isCommentRow(row) {
+  const firstNonEmpty = row.map(c => String(c ?? "").trim()).find(c => c !== "");
+  if (!firstNonEmpty) return false;
+  return /^[#;]|^\/\//.test(firstNonEmpty);
+}
+
+function filterNonCommentRows(rows) {
+  return rows.filter(row => !isCommentRow(row));
+}
+
 function parseRevenueCell(raw) {
-  let cell = String(raw ?? "").trim();
+  let cell = stripInlineComment(raw);
   if (!cell) return null;
 
   cell = cell.replace(/[£$€\s]/g, '');
@@ -2194,6 +2208,34 @@ function parseRevenueCell(raw) {
 
   const v = Number(cell);
   return Number.isFinite(v) ? v : NaN;
+}
+
+function rowHasLeadingNumericPair(row) {
+  const a = parseRevenueCell(row[0]);
+  const b = parseRevenueCell(row[1]);
+  return a !== null && !Number.isNaN(a) && b !== null && !Number.isNaN(b);
+}
+
+function isSingleColDataRow(row) {
+  const p = parseRevenueCell(row[0]);
+  return p !== null && !Number.isNaN(p);
+}
+
+function isTwoColDataRow(row) {
+  const id = stripInlineComment(row[0]);
+  const rev = parseRevenueCell(row[1]);
+  return id !== "" && rev !== null && !Number.isNaN(rev);
+}
+
+function isMultiColDataRow(row, k) {
+  if (!rowHasLeadingNumericPair(row)) return false;
+  for (let c = 2; c < k; c++) {
+    const cell = String(row[c] ?? "").trim();
+    if (!cell) continue;
+    const p = parseRevenueCell(row[c]);
+    if (p === null || Number.isNaN(p)) return false;
+  }
+  return true;
 }
 
 // format: "single" = one revenue column (col A); "two-col" = ID in col A, revenue in col B
@@ -2217,8 +2259,8 @@ function parseRevenueFile(text, format = "single") {
     }
   }
 
-  const rows = results.data;
-  if (!rows || rows.length === 0) return { values, errors };
+  const rows = filterNonCommentRows(results.data ?? []);
+  if (!rows.length) return { values, errors };
 
   if (format === "single") {
     const hasExtraColumnData = rows.some(row =>
@@ -2242,21 +2284,13 @@ function parseRevenueFile(text, format = "single") {
     }
   }
 
-  let startRow = 0;
-  const firstVal = parseRevenueCell(rows[0][revenueColIdx]);
-  if (firstVal === null || Number.isNaN(firstVal)) startRow = 1;
+  rows.forEach((row, idx) => {
+    const rowNum = idx + 1;
+    if (format === "single" && !isSingleColDataRow(row)) return;
+    if (format === "two-col" && !isTwoColDataRow(row)) return;
 
-  let sawData = startRow > 0;
-
-  rows.slice(startRow).forEach((row, idx) => {
-    const rowNum = idx + startRow + 1;
     const parsed = parseRevenueCell(row[revenueColIdx]);
-    if (parsed === null) {
-      if (format === "two-col" && String(row[0] ?? "").trim() !== "") {
-        if (errors.length < 8) errors.push(`Row ${rowNum}: missing revenue in the second column.`);
-      }
-      return;
-    }
+    if (parsed === null) return;
 
     if (Number.isNaN(parsed)) {
       if (errors.length < 8) {
@@ -2266,15 +2300,13 @@ function parseRevenueFile(text, format = "single") {
     }
     if (parsed < 0) {
       if (errors.length < 8) errors.push(`Row ${rowNum}: revenue can't be negative.`);
-      sawData = true;
       return;
     }
 
-    sawData = true;
     values.push(parsed);
   });
 
-  if (!sawData && errors.length === 0) {
+  if (!values.length && errors.length === 0) {
     errors.push(format === "two-col"
       ? "No revenue values found in the second column."
       : "No revenue values found in the first column.");
@@ -2293,8 +2325,10 @@ function parseMultiVariantRevenueFile(text, k) {
     dynamicTyping: false,
   });
 
-  const rows = (results.data ?? []).filter(row =>
-    row.some(cell => String(cell ?? "").trim() !== "")
+  const rows = filterNonCommentRows(
+    (results.data ?? []).filter(row =>
+      row.some(cell => String(cell ?? "").trim() !== "")
+    )
   );
   if (!rows.length) {
     errors.push("File is empty.");
@@ -2311,15 +2345,10 @@ function parseMultiVariantRevenueFile(text, k) {
     return { variants, errors };
   }
 
-  let startRow = 0;
-  const firstRowNumeric = rows[0].slice(0, k).every(cell => {
-    const p = parseRevenueCell(cell);
-    return p !== null && !Number.isNaN(p);
-  });
-  if (!firstRowNumeric) startRow = 1;
+  rows.forEach((row, idx) => {
+    const rowNum = idx + 1;
+    if (!isMultiColDataRow(row, k)) return;
 
-  rows.slice(startRow).forEach((row, idx) => {
-    const rowNum = idx + startRow + 1;
     for (let c = 0; c < k; c++) {
       const parsed = parseRevenueCell(row[c]);
       if (parsed === null) continue;
@@ -2515,10 +2544,10 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     : "Upload one file per variant. Changing format clears any files already uploaded.";
 
   const perVariantUploadHint = fileFormat === "two-col"
-    ? "Two columns · identifier in the first, order revenue in the second · optional header row"
-    : "Single column · one order revenue value per row in the first column · optional header row";
+    ? "Two columns · ID in the first, revenue in the second · # comment lines ignored"
+    : "Single column · one revenue value per row · # comment lines ignored";
 
-  const combinedUploadHint = `${k} columns · ${labels.map((nm, i) => `column ${i + 1} = ${nm}`).join(" · ")} · optional header row · empty cells skipped`;
+  const combinedUploadHint = `${k} revenue columns · ${labels.map((nm, i) => `column ${i + 1} = ${nm}`).join(" · ")} · rows need numbers in columns 1 and 2 · # comment lines ignored`;
 
   const totalOrdersDetected = isMultiCol && combinedFileParsed
     ? armData.reduce((sum, a) => sum + a.orderCount, 0)
