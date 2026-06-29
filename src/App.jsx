@@ -2196,16 +2196,17 @@ function parseRevenueCell(raw) {
   return Number.isFinite(v) ? v : NaN;
 }
 
-// Parse a revenue file: one column only, first column = one order value per row.
-function parseRevenueFile(text) {
+// format: "single" = one revenue column (col A); "two-col" = ID in col A, revenue in col B
+function parseRevenueFile(text, format = "single") {
   const values = [], errors = [];
+  const revenueColIdx = format === "two-col" ? 1 : 0;
 
   let results = Papa.parse(text.trim(), {
     skipEmptyLines: true,
     dynamicTyping: false,
   });
 
-  if (results.data.length > 0 && results.data[0].length === 1) {
+  if (results.data.length > 0 && results.data[0].length === 1 && format === "single") {
     const spaceSplit = text.trim().split('\n')[0].split(/\s+/);
     if (spaceSplit.length > 1) {
       results = Papa.parse(text.trim(), {
@@ -2219,29 +2220,48 @@ function parseRevenueFile(text) {
   const rows = results.data;
   if (!rows || rows.length === 0) return { values, errors };
 
-  const hasExtraColumnData = rows.some(row =>
-    row.slice(1).some(cell => String(cell ?? "").trim() !== "")
-  );
-  if (hasExtraColumnData) {
-    return {
-      values: [],
-      errors: ["Upload a single-column file with one order revenue value per row in the first column."],
-    };
+  if (format === "single") {
+    const hasExtraColumnData = rows.some(row =>
+      row.slice(1).some(cell => String(cell ?? "").trim() !== "")
+    );
+    if (hasExtraColumnData) {
+      return {
+        values: [],
+        errors: ["Upload a single-column file with one order revenue value per row in the first column."],
+      };
+    }
+  } else if (format === "two-col") {
+    const hasExtraColumnData = rows.some(row =>
+      row.slice(2).some(cell => String(cell ?? "").trim() !== "")
+    );
+    if (hasExtraColumnData) {
+      return {
+        values: [],
+        errors: ["Use two columns only: identifier in the first column, order revenue in the second."],
+      };
+    }
   }
 
   let startRow = 0;
-  const firstVal = parseRevenueCell(rows[0][0]);
+  const firstVal = parseRevenueCell(rows[0][revenueColIdx]);
   if (firstVal === null || Number.isNaN(firstVal)) startRow = 1;
 
   let sawData = startRow > 0;
 
   rows.slice(startRow).forEach((row, idx) => {
     const rowNum = idx + startRow + 1;
-    const parsed = parseRevenueCell(row[0]);
-    if (parsed === null) return;
+    const parsed = parseRevenueCell(row[revenueColIdx]);
+    if (parsed === null) {
+      if (format === "two-col" && String(row[0] ?? "").trim() !== "") {
+        if (errors.length < 8) errors.push(`Row ${rowNum}: missing revenue in the second column.`);
+      }
+      return;
+    }
 
     if (Number.isNaN(parsed)) {
-      if (errors.length < 8) errors.push(`Row ${rowNum}: "${String(row[0] ?? "").trim()}" is not a number.`);
+      if (errors.length < 8) {
+        errors.push(`Row ${rowNum}: "${String(row[revenueColIdx] ?? "").trim()}" is not a number.`);
+      }
       return;
     }
     if (parsed < 0) {
@@ -2255,10 +2275,76 @@ function parseRevenueFile(text) {
   });
 
   if (!sawData && errors.length === 0) {
-    errors.push("No revenue values found in the first column.");
+    errors.push(format === "two-col"
+      ? "No revenue values found in the second column."
+      : "No revenue values found in the first column.");
   }
 
   return { values, errors };
+}
+
+// One file, one column per variant — each cell is an order revenue value for that variant.
+function parseMultiVariantRevenueFile(text, k) {
+  const errors = [];
+  const variants = Array.from({ length: k }, () => ({ values: [], errors: [] }));
+
+  const results = Papa.parse(text.trim(), {
+    skipEmptyLines: false,
+    dynamicTyping: false,
+  });
+
+  const rows = (results.data ?? []).filter(row =>
+    row.some(cell => String(cell ?? "").trim() !== "")
+  );
+  if (!rows.length) {
+    errors.push("File is empty.");
+    return { variants, errors };
+  }
+
+  const numCols = Math.max(...rows.map(row => row.length));
+  if (numCols < k) {
+    errors.push(`File has ${numCols} column${numCols === 1 ? "" : "s"} but you have ${k} variants — each variant needs its own column.`);
+    return { variants, errors };
+  }
+  if (numCols > k) {
+    errors.push(`File has ${numCols} columns but you have ${k} variants — remove extra columns or add variants.`);
+    return { variants, errors };
+  }
+
+  let startRow = 0;
+  const firstRowNumeric = rows[0].slice(0, k).every(cell => {
+    const p = parseRevenueCell(cell);
+    return p !== null && !Number.isNaN(p);
+  });
+  if (!firstRowNumeric) startRow = 1;
+
+  rows.slice(startRow).forEach((row, idx) => {
+    const rowNum = idx + startRow + 1;
+    for (let c = 0; c < k; c++) {
+      const parsed = parseRevenueCell(row[c]);
+      if (parsed === null) continue;
+      if (Number.isNaN(parsed)) {
+        if (variants[c].errors.length < 8) {
+          variants[c].errors.push(`Row ${rowNum}, column ${c + 1}: "${String(row[c] ?? "").trim()}" is not a number.`);
+        }
+        continue;
+      }
+      if (parsed < 0) {
+        if (variants[c].errors.length < 8) {
+          variants[c].errors.push(`Row ${rowNum}, column ${c + 1}: revenue can't be negative.`);
+        }
+        continue;
+      }
+      variants[c].values.push(parsed);
+    }
+  });
+
+  const emptyCols = variants.map((v, i) => v.values.length === 0 ? i + 1 : null).filter(Boolean);
+  if (emptyCols.length) {
+    errors.push(`No revenue values found in column${emptyCols.length > 1 ? "s" : ""} ${emptyCols.join(", ")}.`);
+  }
+
+  return { variants, errors };
 }
 
 function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
@@ -2268,13 +2354,32 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   const [visitorOverrides, setVisitorOverrides] = useState(Array(8).fill(''));
   const [convOverrides, setConvOverrides]       = useState(Array(8).fill(''));
   const [fileParsed, setFileParsed]             = useState(Array(8).fill(null)); // {values,errors,name}
+  const [combinedFileParsed, setCombinedFileParsed] = useState(null); // {name, variants, errors}
+  const [fileFormat, setFileFormat]             = useState("single"); // single | two-col | multi-col
   const [winsorize, setWinsorize]               = useState(false);
   const [outlierPct, setOutlierPct]             = useState(0.99);
   const [calculated, setCalculated]             = useState(false);
   const fileRefs = useRef(Array.from({ length: 8 }, () => null));
+  const combinedFileRef = useRef(null);
+  const isMultiCol = fileFormat === "multi-col";
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [visitorOverrides, convOverrides, fileParsed, winsorize, outlierPct, alloc, k, confidence, twoTailed, durationDays, rows]);
+    [visitorOverrides, convOverrides, fileParsed, combinedFileParsed, fileFormat, winsorize, outlierPct, alloc, k, confidence, twoTailed, durationDays, rows]);
+
+  React.useEffect(() => {
+    setFileParsed(Array(8).fill(null));
+    setCombinedFileParsed(null);
+    fileRefs.current.forEach(ref => { if (ref) ref.value = ""; });
+    if (combinedFileRef.current) combinedFileRef.current.value = "";
+    setCalculated(false);
+  }, [fileFormat]);
+
+  React.useEffect(() => {
+    if (!isMultiCol) return;
+    setCombinedFileParsed(null);
+    if (combinedFileRef.current) combinedFileRef.current.value = "";
+    setCalculated(false);
+  }, [k, isMultiCol]);
 
   // Effective visitors/conversions per variant: override takes priority, then CVR tab value
   const effectiveVisitors = labels.map((_, i) => {
@@ -2290,7 +2395,11 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
 
   // Parse results
   const armData = labels.map((nm, i) => {
-    const fp = fileParsed[i];
+    const fp = isMultiCol
+      ? (combinedFileParsed?.variants?.[i]
+          ? { ...combinedFileParsed.variants[i], name: combinedFileParsed.name }
+          : null)
+      : fileParsed[i];
     const vRaw = effectiveVisitors[i];
     const visitors = Number(vRaw);
     const visitorsOk = Number.isInteger(visitors) && visitors > 0;
@@ -2318,7 +2427,12 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
              orders, orderCount, fp, mismatch };
   });
 
-  const allFilesLoaded = armData.every(a => a.orderCount >= 2);
+  const combinedFileOk = !isMultiCol || (
+    combinedFileParsed &&
+    combinedFileParsed.errors.length === 0 &&
+    combinedFileParsed.variants?.every(v => v.errors.length === 0)
+  );
+  const allFilesLoaded = combinedFileOk && armData.every(a => a.orderCount >= 2);
   const allVisitorsOk  = armData.every(a => a.visitorsOk);
   const allocSum = alloc.reduce((a, b) => a + (Number(b) || 0), 0);
   const allocOk  = Math.abs(allocSum - 100) <= 0.5;
@@ -2381,11 +2495,34 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   const onFile = (i, file) => {
     const reader = new FileReader();
     reader.onload = e => {
-      const { values, errors } = parseRevenueFile(e.target.result);
+      const { values, errors } = parseRevenueFile(e.target.result, fileFormat);
       setFileParsed(prev => { const n=[...prev]; n[i]={ values, errors, name: file.name }; return n; });
     };
     reader.readAsText(file);
   };
+
+  const onCombinedFile = (file) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const { variants, errors } = parseMultiVariantRevenueFile(e.target.result, k);
+      setCombinedFileParsed({ name: file.name, variants, errors });
+    };
+    reader.readAsText(file);
+  };
+
+  const formatHint = isMultiCol
+    ? `Upload one CSV with ${k} revenue columns — ${labels.map((nm, i) => `column ${i + 1} = ${nm}`).join(", ")}. Changing format or variant count clears uploaded files.`
+    : "Upload one file per variant. Changing format clears any files already uploaded.";
+
+  const perVariantUploadHint = fileFormat === "two-col"
+    ? "Two columns · identifier in the first, order revenue in the second · optional header row"
+    : "Single column · one order revenue value per row in the first column · optional header row";
+
+  const combinedUploadHint = `${k} columns · ${labels.map((nm, i) => `column ${i + 1} = ${nm}`).join(" · ")} · optional header row · empty cells skipped`;
+
+  const totalOrdersDetected = isMultiCol && combinedFileParsed
+    ? armData.reduce((sum, a) => sum + a.orderCount, 0)
+    : 0;
 
   const corrected = k >= 3;
   const days = Number(durationDays);
@@ -2432,6 +2569,72 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
           ))}
         </div>
 
+        <Field
+          label="File format"
+          htmlFor="rev-file-format"
+          hint={formatHint}
+        >
+          <select
+            id="rev-file-format"
+            className="input select rev-file-format-select"
+            value={fileFormat}
+            onChange={(e) => setFileFormat(e.target.value)}
+          >
+            <option value="single">Separate file per variant · 1 revenue column</option>
+            <option value="two-col">Separate file per variant · 2 columns (ID + revenue)</option>
+            <option value="multi-col">1 shared file · {k} revenue columns (one per variant)</option>
+          </select>
+        </Field>
+
+        {isMultiCol ? (
+          <>
+            <h3 className="block-title">Order revenue file</h3>
+            <div className="upload-zone" role="group" aria-label="Combined order revenue file for all variants">
+              <input
+                ref={combinedFileRef}
+                type="file" accept=".csv,.txt,text/csv,text/plain"
+                className="sr-only"
+                id="rev-file-combined"
+                aria-describedby="rev-file-combined-hint"
+                onChange={e => e.target.files && e.target.files[0] && onCombinedFile(e.target.files[0])}
+              />
+              <label htmlFor="rev-file-combined" className={`upload-label ${combinedFileParsed ? 'upload-label-filled' : ''}`}>
+                <span className="upload-icon" aria-hidden="true">{combinedFileParsed ? <FileIcon /> : <UploadIcon />}</span>
+                <span className="upload-cta">{combinedFileParsed ? combinedFileParsed.name : 'Choose file'}</span>
+                <span className="upload-sub">
+                  {combinedFileParsed && combinedFileOk
+                    ? `${fmtInt(totalOrdersDetected)} orders detected across ${k} variants - click to replace`
+                    : 'CSV or text file'}
+                </span>
+              </label>
+              <div id="rev-file-combined-hint" className="upload-fmt">{combinedUploadHint}</div>
+            </div>
+
+            {combinedFileParsed && combinedFileParsed.errors.length > 0 && (
+              <div className="field-error" role="alert">
+                {combinedFileParsed.errors.map((err, j) => <div key={j}>{err}</div>)}
+              </div>
+            )}
+
+            {combinedFileParsed && combinedFileOk && (
+              <ul className="multi-file-summary">
+                {armData.map((a, i) => (
+                  <li key={i}>
+                    <strong>{a.name}</strong>
+                    <span>{fmtInt(a.orderCount)} orders</span>
+                    {a.fp?.errors?.length > 0 && (
+                      <div className="field-error" role="alert">
+                        {a.fp.errors.map((err, j) => <div key={j}>{err}</div>)}
+                      </div>
+                    )}
+                    {a.mismatch && <div className="mismatch-warn" role="alert">{a.mismatch}</div>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </>
+        ) : (
+          <>
         <h3 className="block-title">Order revenue file per variant</h3>
         {armData.map((a, i) => (
           <div className="arm-row" key={i}>
@@ -2458,7 +2661,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 <span className="upload-sub">{a.fp ? `${fmtInt(a.orderCount)} orders detected - click to replace` : 'CSV or text file'}</span>
               </label>
               <div id={`rev-file-hint-${i}`} className="upload-fmt">
-                Single column only · one order revenue value per row in the first column · optional header row
+                {perVariantUploadHint}
               </div>
             </div>
 
@@ -2473,6 +2676,8 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
             )}
           </div>
         ))}
+          </>
+        )}
 
         <div className="outlier-wrap">
           <div className="outlier-header">
@@ -3231,6 +3436,7 @@ const CSS = `
   padding:10px 13px;font-size:15.5px;font-family:'Inter',sans-serif;color:var(--ink);
   background:var(--card);font-feature-settings:'tnum' 1;}
 .input.select{max-width:320px;}
+.rev-file-format-select{max-width:100%;width:100%;}
 [data-theme='dark'] .input{background:var(--paper);border-color:var(--line);}
 .input:focus-visible{border-color:var(--purple);outline:0;box-shadow:0 0 0 3px var(--purple-soft);}
 [data-theme='dark'] .input:focus-visible{border-color:var(--purple-bright);box-shadow:0 0 0 3px var(--purple-soft);}
@@ -3528,6 +3734,11 @@ const CSS = `
 .upload-cta{font-weight:700;font-size:14.5px;color:var(--purple-deep);word-break:break-all;}
 .upload-sub{font-size:12.5px;color:var(--muted);}
 .upload-fmt{font-size:12.5px;color:var(--muted);margin-top:6px;padding:0 2px;line-height:1.5;}
+.multi-file-summary{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:10px;}
+.multi-file-summary li{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 12px;padding:10px 12px;background:var(--paper);border:1px solid var(--line);border-radius:10px;}
+.multi-file-summary li strong{font-size:14px;color:var(--ink);}
+.multi-file-summary li span{font-size:13px;color:var(--muted);}
+.multi-file-summary .field-error,.multi-file-summary .mismatch-warn{width:100%;margin-top:4px;}
 
 @media (prefers-reduced-motion:no-preference){
   .tab:not(.tab-on),.subtab:not(.subtab-on),.btn,.btn-step,.seg-opt:not(.seg-on),.choice-opt:not(.choice-opt-on){
