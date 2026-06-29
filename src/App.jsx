@@ -1790,6 +1790,12 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
               <span className="v2-d-label">{zScore?.label || "Z-score"}</span>
               <span className="v2-d-val">{zScore?.value != null ? zScore.value.toFixed(4) : "-"}</span>
             </div>
+            {zScore?.df != null && Number.isFinite(zScore.df) && (
+              <div className="v2-d-col">
+                <span className="v2-d-label">Degrees of freedom</span>
+                <span className="v2-d-val">{zScore.df.toFixed(1)}</span>
+              </div>
+            )}
             {ciBase && (
               <div className="v2-d-col">
                 <span className="v2-d-label"><Explainer id="confpct" inline label={`${baseCiLabel || "Control"} (${confPct}% CI)`} /></span>
@@ -2841,7 +2847,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   baseCiLabel="Variant A Revenue Per Visitor" varCiLabel={`${r.name} Revenue Per Visitor`}
                   ciFmt={(lo, hi) => `${fmtMoney(lo)} – ${fmtMoney(hi)}`}
                   confidence={confidence} twoTailed={twoTailed}
-                  zScore={{ label: "T-score", value: r.t }}
+                  zScore={{ label: "T-score", value: r.t, df: r.df }}
                   skewVerdict={analysis.armStats[i+1].rpv.skew}
                   meaningOverride={
                     (corrected ? r.pAdj : r.pRaw) < 1 - confidence
@@ -2867,7 +2873,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   baseCiLabel="Variant A Average Order Value" varCiLabel={`${r.name} Average Order Value`}
                   ciFmt={(lo, hi) => `${fmtMoney(lo)} – ${fmtMoney(hi)}`}
                   confidence={confidence} twoTailed={twoTailed}
-                  zScore={{ label: "T-score", value: r.t }}
+                  zScore={{ label: "T-score", value: r.t, df: r.df }}
                   skewVerdict={analysis.armStats[i+1].aov.skew}
                   meaningOverride={
                     (corrected ? r.pAdj : r.pRaw) < 1 - confidence
@@ -3532,7 +3538,7 @@ const CSS = `
 .explainer-body{position:fixed;z-index:1000;background:var(--card);
   border:1px solid var(--line);padding:16px 20px;font-size:14px;border-radius:12px;
   box-shadow:var(--shadow);width:280px;color:var(--ink);text-align:left;
-  max-width:calc(100vw - 24px);font-weight:400;line-height:1.6;}
+  max-width:calc(100vw - 24px);font-weight:400;line-height:1.6;text-transform:none;}
 [data-theme='dark'] .explainer-body{background:var(--card);border-color:var(--line);box-shadow:0 8px 32px rgba(0,0,0,0.8);}
 @media (max-width:480px){.explainer-body{width:240px;}}
 .exp-title{font-weight:700;margin-bottom:8px;color:var(--navy);font-size:15px;}
