@@ -2176,18 +2176,35 @@ function rpvStats(orders, visitors) {
   return { m, s: Math.sqrt(variance), n: visitors };
 }
 
-// Parse a revenue file: handles CSV, TSV, space-delimited.
-// Heuristically finds the revenue column if multiple exist.
+function parseRevenueCell(raw) {
+  let cell = String(raw ?? "").trim();
+  if (!cell) return null;
+
+  cell = cell.replace(/[£$€\s]/g, '');
+
+  if (cell.includes(',') && cell.includes('.')) {
+    const lastComma = cell.lastIndexOf(',');
+    const lastDot = cell.lastIndexOf('.');
+    if (lastComma > lastDot) cell = cell.replace(/\./g, '').replace(',', '.');
+    else cell = cell.replace(/,/g, '');
+  } else if (cell.includes(',')) {
+    if (/^\d{1,3}(,\d{3})+$/.test(cell)) cell = cell.replace(/,/g, '');
+    else cell = cell.replace(',', '.');
+  }
+
+  const v = Number(cell);
+  return Number.isFinite(v) ? v : NaN;
+}
+
+// Parse a revenue file: one column only, first column = one order value per row.
 function parseRevenueFile(text) {
   const values = [], errors = [];
-  
-  // Use PapaParse for robust parsing
+
   let results = Papa.parse(text.trim(), {
     skipEmptyLines: true,
     dynamicTyping: false,
   });
 
-  // Fallback for space-delimited files if auto-detection failed
   if (results.data.length > 0 && results.data[0].length === 1) {
     const spaceSplit = text.trim().split('\n')[0].split(/\s+/);
     if (spaceSplit.length > 1) {
@@ -2202,150 +2219,46 @@ function parseRevenueFile(text) {
   const rows = results.data;
   if (!rows || rows.length === 0) return { values, errors };
 
-  // Heuristic to find the revenue column
-  let revenueColIdx = -1;
-  const firstRow = rows[0];
-  const numCols = firstRow.length;
-
-  if (numCols === 1) {
-    revenueColIdx = 0;
-  } else {
-    // 1. Try header names
-    const possibleHeaders = ["revenue", "rev", "value", "amount", "amt", "price", "total", "spend", "order_value", "order value", "sales", "sale"];
-    const idHeaders = ["id", "order", "trans", "uuid", "guid", "idx", "row", "key"];
-
-    let bestHeaderScore = -1;
-    for (let c = 0; c < numCols; c++) {
-      const cell = String(firstRow[c] || "").toLowerCase();
-      let score = 0;
-      if (possibleHeaders.some(h => cell.includes(h))) score += 10;
-      if (idHeaders.some(h => cell.includes(h))) score -= 10;
-      
-      if (score > bestHeaderScore) {
-        bestHeaderScore = score;
-        revenueColIdx = c;
-      }
-    }
-
-    // 2. Fallback or refinement: Analyze data
-    if (bestHeaderScore <= 0) {
-      const colScores = Array(numCols).fill(0);
-      const rowsToTest = rows.slice(0, 20); // Test more rows
-      
-      for (let c = 0; c < numCols; c++) {
-        let numericCount = 0;
-        let hasDecimals = false;
-        let avgValue = 0;
-        let uniqueValues = new Set();
-        let isSequential = true;
-        let lastValue = null;
-
-        rowsToTest.forEach(row => {
-          const rawCell = String(row[c] || "").trim();
-          const cell = rawCell.replace(/[£$€\s,]/g, '');
-          const v = Number(cell);
-          if (rawCell !== "" && !isNaN(v)) {
-            numericCount++;
-            if (rawCell.includes('.') || (rawCell.includes(',') && !rawCell.includes('.'))) hasDecimals = true;
-            avgValue += Math.abs(v);
-            uniqueValues.add(v);
-            if (lastValue !== null && v !== lastValue + 1) isSequential = false;
-            lastValue = v;
-          }
-        });
-
-        if (numericCount > 0) {
-          avgValue /= numericCount;
-          // Score higher for columns that are numeric
-          colScores[c] += (numericCount / rowsToTest.length) * 20;
-          // Score higher for columns with decimals (likely prices)
-          if (hasDecimals) colScores[c] += 15;
-          // Score LOWER for columns that look like IDs
-          if (isSequential && numericCount > 1) colScores[c] -= 30;
-          if (uniqueValues.size === numericCount && numericCount > 5) colScores[c] -= 10; // Likely unique ID
-          if (avgValue > 1000000 && Number.isInteger(avgValue)) colScores[c] -= 20;
-        }
-      }
-      
-      // Pick highest scoring column, prefer rightmost if tied
-      let maxScore = -Infinity;
-      for (let c = numCols - 1; c >= 0; c--) {
-        if (colScores[c] > maxScore) {
-          maxScore = colScores[c];
-          revenueColIdx = c;
-        }
-      }
-    }
+  const hasExtraColumnData = rows.some(row =>
+    row.slice(1).some(cell => String(cell ?? "").trim() !== "")
+  );
+  if (hasExtraColumnData) {
+    return {
+      values: [],
+      errors: ["Upload a single-column file with one order revenue value per row in the first column."],
+    };
   }
 
-  if (revenueColIdx === -1) revenueColIdx = numCols - 1;
+  let startRow = 0;
+  const firstVal = parseRevenueCell(rows[0][0]);
+  if (firstVal === null || Number.isNaN(firstVal)) startRow = 1;
 
-  let firstDataSeen = false;
-  const rawValues = new Map(); // Map ID -> sum of revenue
+  let sawData = startRow > 0;
 
-  rows.forEach((row, i) => {
-    let cell = String(row[revenueColIdx] || "").trim();
-    if (!cell) return;
+  rows.slice(startRow).forEach((row, idx) => {
+    const rowNum = idx + startRow + 1;
+    const parsed = parseRevenueCell(row[0]);
+    if (parsed === null) return;
 
-    // Clean up currency symbols and spaces
-    cell = cell.replace(/[£$€\s]/g, '');
-
-    // Robust number parsing
-    // 1. If it has both , and . (e.g. 1.234,56 or 1,234.56)
-    if (cell.includes(',') && cell.includes('.')) {
-      const lastComma = cell.lastIndexOf(',');
-      const lastDot = cell.lastIndexOf('.');
-      if (lastComma > lastDot) {
-        // European: 1.234,56 -> 1234.56
-        cell = cell.replace(/\./g, '').replace(',', '.');
-      } else {
-        // US/UK: 1,234.56 -> 1234.56
-        cell = cell.replace(/,/g, '');
-      }
-    } else if (cell.includes(',')) {
-      // 2. Only has , (e.g. 1,234 or 10,50)
-      // If it looks like a thousands separator (3 digits after), treat as such
-      if (/^\d{1,3}(,\d{3})+$/.test(cell)) {
-        cell = cell.replace(/,/g, '');
-      } else {
-        // Otherwise treat as decimal
-        cell = cell.replace(',', '.');
-      }
-    }
-
-    const v = Number(cell);
-    if (!Number.isFinite(v)) {
-      if (!firstDataSeen) return; // Skip header
-      if (errors.length < 8) errors.push(`Row ${i + 1}: "${cell}" is not a number.`);
+    if (Number.isNaN(parsed)) {
+      if (errors.length < 8) errors.push(`Row ${rowNum}: "${String(row[0] ?? "").trim()}" is not a number.`);
       return;
     }
-    if (v < 0) {
-      if (errors.length < 8) errors.push(`Row ${i + 1}: revenue can't be negative.`);
-      firstDataSeen = true; return;
+    if (parsed < 0) {
+      if (errors.length < 8) errors.push(`Row ${rowNum}: revenue can't be negative.`);
+      sawData = true;
+      return;
     }
 
-    firstDataSeen = true;
-    
-    // Grouping logic: if there are multiple columns, use the "other" column as an ID
-    let id = i; // Default to row index
-    if (numCols > 1) {
-      // Find a column that isn't the revenue column to use as ID
-      // If there's a column that was penalized as an ID, use it.
-      // Otherwise just use the first column that isn't revenue.
-      let idColIdx = -1;
-      for (let c = 0; c < numCols; c++) {
-        if (c !== revenueColIdx) {
-          idColIdx = c;
-          break;
-        }
-      }
-      if (idColIdx !== -1) id = String(row[idColIdx]);
-    }
-
-    rawValues.set(id, (rawValues.get(id) || 0) + v);
+    sawData = true;
+    values.push(parsed);
   });
 
-  return { values: Array.from(rawValues.values()), errors, numCols, revenueColIdx };
+  if (!sawData && errors.length === 0) {
+    errors.push("No revenue values found in the first column.");
+  }
+
+  return { values, errors };
 }
 
 function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
@@ -2402,7 +2315,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     else if (calculated && vRaw === '') visitorsError = 'Enter visitors - needed for revenue per visitor.';
 
     return { name: nm, visitors, visitorsOk: !visitorsError, visitorsError, vRaw,
-             orders, orderCount, fp, mismatch, numCols: fp ? fp.numCols : 1 };
+             orders, orderCount, fp, mismatch };
   });
 
   const allFilesLoaded = armData.every(a => a.orderCount >= 2);
@@ -2468,8 +2381,8 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   const onFile = (i, file) => {
     const reader = new FileReader();
     reader.onload = e => {
-      const { values, errors, numCols, revenueColIdx } = parseRevenueFile(e.target.result);
-      setFileParsed(prev => { const n=[...prev]; n[i]={ values, errors, name: file.name, numCols, revenueColIdx }; return n; });
+      const { values, errors } = parseRevenueFile(e.target.result);
+      setFileParsed(prev => { const n=[...prev]; n[i]={ values, errors, name: file.name }; return n; });
     };
     reader.readAsText(file);
   };
@@ -2526,7 +2439,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 <span className="avatar-dot" aria-hidden="true">{LETTERS[i]}</span>
                 {a.name}
                 <span className="arm-orders">
-                  {a.orderCount > 0 ? `${fmtInt(a.orderCount)} unique ${a.numCols > 1 ? 'IDs' : 'orders'}` : ''}
+                  {a.orderCount > 0 ? `${fmtInt(a.orderCount)} orders` : ''}
                 </span>
               </h3>
 
@@ -2545,7 +2458,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 <span className="upload-sub">{a.fp ? `${fmtInt(a.orderCount)} orders detected - click to replace` : 'CSV or text file'}</span>
               </label>
               <div id={`rev-file-hint-${i}`} className="upload-fmt">
-                One row per transaction · order value in the last column · header row and transaction ID column both fine
+                Single column only · one order revenue value per row in the first column · optional header row
               </div>
             </div>
 
