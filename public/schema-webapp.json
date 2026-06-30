@@ -1,0 +1,9 @@
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Eclipse A/B Test Calculator",
+  "applicationCategory": "BusinessApplication",
+  "operatingSystem": "Web browser",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
+  "description": "Free A/B test calculator for significance, sample size, duration and revenue analysis with multiple variants and plain-English results."
+}

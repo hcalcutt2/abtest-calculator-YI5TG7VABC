@@ -323,6 +323,14 @@ const fmtMoney = (x, dp = 2) =>
 
 /* ─────────────────────── Export helpers ───────────────────────── */
 
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024; // 10 MB
+
+function uploadSizeError(file) {
+  if (file.size <= MAX_UPLOAD_BYTES) return null;
+  const mb = (file.size / (1024 * 1024)).toFixed(1);
+  return `File is too large (${mb} MB). Maximum size is 10 MB.`;
+}
+
 function downloadBlob(content, filename, type) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -332,28 +340,29 @@ function downloadBlob(content, filename, type) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+function sanitizeCsvCell(raw) {
+  const s = raw == null ? "" : String(raw);
+  // Prevent CSV/formula injection when opened in Excel, LibreOffice, etc.
+  if (/^[=+\-@\t\r]/.test(s)) return `'${s}`;
+  return s;
+}
+
 function toCsv(rows) {
-  // rows: array of arrays. Escape quotes/commas.
+  // rows: array of arrays. Escape quotes/commas; neutralise formula injection.
   return rows.map(r => r.map(cell => {
-    const s = cell == null ? "" : String(cell);
+    const s = sanitizeCsvCell(cell);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   }).join(",")).join("\r\n");
 }
 
 const stamp = () => new Date().toISOString().slice(0, 10);
 
-// Load jsPDF once, on demand
+// Load jsPDF once on demand (bundled — no CDN)
 let _jspdfPromise = null;
 function loadJsPdf() {
-  if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
-  if (_jspdfPromise) return _jspdfPromise;
-  _jspdfPromise = new Promise((resolve, reject) => {
-    const s = document.createElement("script");
-    s.src = "https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js";
-    s.onload = () => resolve(window.jspdf.jsPDF);
-    s.onerror = () => reject(new Error("Couldn't load the PDF library - check your connection."));
-    document.head.appendChild(s);
-  });
+  if (!_jspdfPromise) {
+    _jspdfPromise = import('jspdf').then(({ jsPDF }) => jsPDF);
+  }
   return _jspdfPromise;
 }
 
@@ -2290,27 +2299,38 @@ function parseRevenueFile(text, format = "single") {
     }
   }
 
+  let negativeCount = 0;
   rows.forEach((row, idx) => {
     const rowNum = idx + 1;
+    const revRaw = String(row[revenueColIdx] ?? "").trim();
+    const parsed = revRaw ? parseRevenueCell(row[revenueColIdx]) : null;
+
+    if (parsed !== null && !Number.isNaN(parsed) && parsed < 0) {
+      negativeCount++;
+      if (errors.length < 8) {
+        errors.push(`Row ${rowNum}: revenue can't be negative (${revRaw}).`);
+      }
+      return;
+    }
+
     if (format === "single" && !isSingleColDataRow(row)) return;
     if (format === "two-col" && !isTwoColDataRow(row)) return;
 
-    const parsed = parseRevenueCell(row[revenueColIdx]);
     if (parsed === null) return;
 
     if (Number.isNaN(parsed)) {
       if (errors.length < 8) {
-        errors.push(`Row ${rowNum}: "${String(row[revenueColIdx] ?? "").trim()}" is not a number.`);
+        errors.push(`Row ${rowNum}: "${revRaw}" is not a number.`);
       }
-      return;
-    }
-    if (parsed < 0) {
-      if (errors.length < 8) errors.push(`Row ${rowNum}: revenue can't be negative.`);
       return;
     }
 
     values.push(parsed);
   });
+
+  if (negativeCount > 8) {
+    errors.push(`…and ${negativeCount - 8} more rows with negative revenue (not included).`);
+  }
 
   if (!values.length && errors.length === 0) {
     errors.push(format === "two-col"
@@ -2351,26 +2371,39 @@ function parseMultiVariantRevenueFile(text, k) {
     return { variants, errors };
   }
 
+  const negativeCounts = Array(k).fill(0);
   rows.forEach((row, idx) => {
     const rowNum = idx + 1;
-    if (!isMultiColDataRow(row, k)) return;
+    const rowIsDataRow = isMultiColDataRow(row, k);
 
     for (let c = 0; c < k; c++) {
+      const revRaw = String(row[c] ?? "").trim();
+      if (!revRaw) continue;
       const parsed = parseRevenueCell(row[c]);
-      if (parsed === null) continue;
-      if (Number.isNaN(parsed)) {
+
+      if (parsed !== null && !Number.isNaN(parsed) && parsed < 0) {
+        negativeCounts[c]++;
         if (variants[c].errors.length < 8) {
-          variants[c].errors.push(`Row ${rowNum}, column ${c + 1}: "${String(row[c] ?? "").trim()}" is not a number.`);
+          variants[c].errors.push(`Row ${rowNum}, column ${c + 1}: revenue can't be negative (${revRaw}).`);
         }
         continue;
       }
-      if (parsed < 0) {
+
+      if (!rowIsDataRow) continue;
+      if (parsed === null) continue;
+      if (Number.isNaN(parsed)) {
         if (variants[c].errors.length < 8) {
-          variants[c].errors.push(`Row ${rowNum}, column ${c + 1}: revenue can't be negative.`);
+          variants[c].errors.push(`Row ${rowNum}, column ${c + 1}: "${revRaw}" is not a number.`);
         }
         continue;
       }
       variants[c].values.push(parsed);
+    }
+  });
+
+  negativeCounts.forEach((count, c) => {
+    if (count > 8) {
+      variants[c].errors.push(`…and ${count - 8} more rows with negative revenue in column ${c + 1} (not included).`);
     }
   });
 
@@ -2467,7 +2500,10 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     combinedFileParsed.errors.length === 0 &&
     combinedFileParsed.variants?.every(v => v.errors.length === 0)
   );
-  const allFilesLoaded = combinedFileOk && armData.every(a => a.orderCount >= 2);
+  const noFileErrors = isMultiCol
+    ? combinedFileOk
+    : armData.every(a => !a.fp || a.fp.errors.length === 0);
+  const allFilesLoaded = noFileErrors && armData.every(a => a.orderCount >= 2);
   const allVisitorsOk  = armData.every(a => a.visitorsOk);
   const allocSum = alloc.reduce((a, b) => a + (Number(b) || 0), 0);
   const allocOk  = Math.abs(allocSum - 100) <= 0.5;
@@ -2528,6 +2564,15 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   }
 
   const onFile = (i, file) => {
+    const sizeErr = uploadSizeError(file);
+    if (sizeErr) {
+      setFileParsed(prev => {
+        const n = [...prev];
+        n[i] = { values: [], errors: [sizeErr], name: file.name };
+        return n;
+      });
+      return;
+    }
     const reader = new FileReader();
     reader.onload = e => {
       const { values, errors } = parseRevenueFile(e.target.result, fileFormat);
@@ -2537,6 +2582,11 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   };
 
   const onCombinedFile = (file) => {
+    const sizeErr = uploadSizeError(file);
+    if (sizeErr) {
+      setCombinedFileParsed({ name: file.name, variants: Array.from({ length: k }, () => ({ values: [], errors: [] })), errors: [sizeErr] });
+      return;
+    }
     const reader = new FileReader();
     reader.onload = e => {
       const { variants, errors } = parseMultiVariantRevenueFile(e.target.result, k);
@@ -2550,10 +2600,10 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     : "Upload one file per variant. Changing format clears any files already uploaded.";
 
   const perVariantUploadHint = fileFormat === "two-col"
-    ? "Two columns · ID in the first, revenue in the second · # comment lines ignored"
-    : "Single column · one revenue value per row · # comment lines ignored";
+    ? "Two columns · ID in the first, revenue in the second · # comment lines ignored · max 10 MB"
+    : "Single column · one revenue value per row · # comment lines ignored · max 10 MB";
 
-  const combinedUploadHint = `${k} revenue columns · ${labels.map((nm, i) => `column ${i + 1} = ${nm}`).join(" · ")} · rows need numbers in columns 1 and 2 · # comment lines ignored`;
+  const combinedUploadHint = `${k} revenue columns · ${labels.map((nm, i) => `column ${i + 1} = ${nm}`).join(" · ")} · rows need numbers in columns 1 and 2 · # comment lines ignored · max 10 MB`;
 
   const totalOrdersDetected = isMultiCol && combinedFileParsed
     ? armData.reduce((sum, a) => sum + a.orderCount, 0)
@@ -2637,9 +2687,11 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 <span className="upload-icon" aria-hidden="true">{combinedFileParsed ? <FileIcon /> : <UploadIcon />}</span>
                 <span className="upload-cta">{combinedFileParsed ? combinedFileParsed.name : 'Choose file'}</span>
                 <span className="upload-sub">
-                  {combinedFileParsed && combinedFileOk
-                    ? `${fmtInt(totalOrdersDetected)} orders detected across ${k} variants - click to replace`
-                    : 'CSV or text file'}
+                  {combinedFileParsed
+                    ? (combinedFileOk
+                      ? `${fmtInt(totalOrdersDetected)} orders detected across ${k} variants - click to replace`
+                      : `${fmtInt(totalOrdersDetected)} orders · fix file issues below`)
+                    : 'CSV or text file · max 10 MB'}
                 </span>
               </label>
               <div id="rev-file-combined-hint" className="upload-fmt">{combinedUploadHint}</div>
@@ -2651,7 +2703,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               </div>
             )}
 
-            {combinedFileParsed && combinedFileOk && (
+            {combinedFileParsed && (
               <ul className="multi-file-summary">
                 {armData.map((a, i) => (
                   <li key={i}>
@@ -2693,7 +2745,11 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               <label htmlFor={`rev-file-${i}`} className={`upload-label ${a.fp ? 'upload-label-filled' : ''}`}>
                 <span className="upload-icon" aria-hidden="true">{a.fp ? <FileIcon /> : <UploadIcon />}</span>
                 <span className="upload-cta">{a.fp ? a.fp.name : 'Choose file'}</span>
-                <span className="upload-sub">{a.fp ? `${fmtInt(a.orderCount)} orders detected - click to replace` : 'CSV or text file'}</span>
+                <span className="upload-sub">{a.fp
+                  ? (a.fp.errors.length > 0
+                    ? `${fmtInt(a.orderCount)} orders · fix ${a.fp.errors.length} issue${a.fp.errors.length > 1 ? 's' : ''} below`
+                    : `${fmtInt(a.orderCount)} orders detected - click to replace`)
+                  : 'CSV or text file · max 10 MB'}</span>
               </label>
               <div id={`rev-file-hint-${i}`} className="upload-fmt">
                 {perVariantUploadHint}
