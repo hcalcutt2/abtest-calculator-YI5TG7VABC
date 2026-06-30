@@ -1611,37 +1611,45 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
   );
 }
 
-function DistributionChart({ comparisons }) {
+function MetricDistributionChart({ comparisons, formatX, formatTooltipLabel, caption }) {
   const colors = useChartTheme();
   const tip = chartTipProps(colors);
-  // Each comparison: { name, p1, p2, seA, seB }. Draw normal sampling distributions.
-  const normalPdf = (x, mu, s) => Math.exp(-0.5 * ((x - mu) / s) ** 2) / (s * Math.sqrt(2 * Math.PI));
+  if (!comparisons?.length) return null;
+
+  const normalPdf = (x, mu, s) =>
+    s > 0 ? Math.exp(-0.5 * ((x - mu) / s) ** 2) / (s * Math.sqrt(2 * Math.PI)) : 0;
+
   let lo = Infinity, hi = -Infinity;
   comparisons.forEach(c => {
     lo = Math.min(lo, c.p1 - 4 * c.seA, c.p2 - 4 * c.seB);
     hi = Math.max(hi, c.p1 + 4 * c.seA, c.p2 + 4 * c.seB);
   });
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo >= hi) return null;
+
   const N = 80;
   const data = [];
   for (let i = 0; i <= N; i++) {
     const x = lo + (hi - lo) * i / N;
-    const row = { x: +(x * 100).toFixed(4) };
+    const row = { x };
     row.control = normalPdf(x, comparisons[0].p1, comparisons[0].seA);
     comparisons.forEach((c, j) => { row[`v${j}`] = normalPdf(x, c.p2, c.seB); });
     data.push(row);
   }
+
   const palette = ["#DC004A", "#818CF8", "#34D399", "#FBBF24", "#F87171", "#38BDF8", "#FB7185"];
+  const fmtLabel = formatTooltipLabel || formatX;
+
   return (
     <div className="chart-wrap">
       <ResponsiveContainer width="100%" height={200}>
         <LineChart data={data} margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
           <CartesianGrid stroke={colors.grid} strokeDasharray="2 4" />
-          <XAxis dataKey="x" tick={{ fontSize: 11, fill: colors.tick }} unit="%"
-            tickFormatter={(v) => v.toFixed(2)} minTickGap={28} />
+          <XAxis dataKey="x" tick={{ fontSize: 11, fill: colors.tick }}
+            tickFormatter={formatX} minTickGap={28} />
           <YAxis hide />
           <ChartTip
             formatter={(val, key) => [Math.round(val), key === "control" ? "Variant A (Control)" : "Variant"]}
-            labelFormatter={(x) => `CVR ${(+x).toFixed(3)}%`} {...tip} />
+            labelFormatter={fmtLabel} {...tip} />
           <Line type="monotone" dataKey="control" stroke={colors.control} strokeWidth={2} dot={false} isAnimationActive={false} name="Variant A (Control)" />
           {comparisons.map((c, j) => (
             <Line key={j} type="monotone" dataKey={`v${j}`} stroke={palette[(j + 1) % palette.length]}
@@ -1649,9 +1657,7 @@ function DistributionChart({ comparisons }) {
           ))}
         </LineChart>
       </ResponsiveContainer>
-      <p className="chart-caption">
-        Expected spread of each variant's true conversion rate. The more the curves overlap, the harder it is to tell them apart - wide separation is what makes a result significant.
-      </p>
+      {caption && <p className="chart-caption">{caption}</p>}
     </div>
   );
 }
@@ -1668,7 +1674,12 @@ function DetailedStats({ comparisons, confidence, twoTailed }) {
       {open && (
         <div className="detail-card">
           <h4 className="detail-title">Expected distributions</h4>
-          <DistributionChart comparisons={comparisons} />
+          <MetricDistributionChart
+            comparisons={comparisons}
+            formatX={(v) => (v * 100).toFixed(2)}
+            formatTooltipLabel={(x) => `CVR ${(x * 100).toFixed(3)}%`}
+            caption="Expected spread of each variant's true conversion rate. The more the curves overlap, the harder it is to tell them apart - wide separation is what makes a result significant."
+          />
           <h4 className="detail-title">The numbers</h4>
           <div className="detail-table-wrap">
             <table className="detail-table">
@@ -1707,9 +1718,108 @@ function DetailedStats({ comparisons, confidence, twoTailed }) {
   );
 }
 
+function buildMetricComparisons(armStats, metricKey) {
+  const ctrl = armStats[0][metricKey];
+  return armStats.slice(1).map(a => {
+    const m = a[metricKey];
+    return {
+      name: a.name,
+      p1: ctrl.m,
+      p2: m.m,
+      seA: ctrl.s / Math.sqrt(Math.max(1, ctrl.n)),
+      seB: m.s / Math.sqrt(Math.max(1, m.n)),
+    };
+  });
+}
+
+function RevenueDetailedStats({ armStats, rpvResults, aovResults, confidence, twoTailed }) {
+  const [open, setOpen] = useState(false);
+  const rpvComparisons = buildMetricComparisons(armStats, "rpv");
+  const aovComparisons = buildMetricComparisons(armStats, "aov");
+
+  return (
+    <div className="detail-wrap">
+      <button type="button" className="detail-toggle" aria-expanded={open}
+        onClick={() => setOpen(!open)}>
+        <span aria-hidden="true">{open ? "▾" : "▸"}</span>
+        {open ? "Hide the statistics" : "Show the statistics behind this"}
+      </button>
+      {open && (
+        <div className="detail-card">
+          <h4 className="detail-title">Revenue per visitor — expected distributions</h4>
+          <MetricDistributionChart
+            comparisons={rpvComparisons}
+            formatX={(v) => fmtMoney(v)}
+            formatTooltipLabel={(x) => `RPV ${fmtMoney(x)}`}
+            caption="Expected spread of each variant's true revenue per visitor (non-buyers count as £0). The more the curves overlap, the harder it is to detect a difference."
+          />
+          <h4 className="detail-title">Average order value — expected distributions</h4>
+          <MetricDistributionChart
+            comparisons={aovComparisons}
+            formatX={(v) => fmtMoney(v)}
+            formatTooltipLabel={(x) => `AOV ${fmtMoney(x)}`}
+            caption="Expected spread of each variant's true average order value among buyers only. Overlap here means similar order sizes, even if conversion or RPV differ."
+          />
+          <h4 className="detail-title">The numbers</h4>
+          <div className="detail-table-wrap">
+            <table className="detail-table">
+              <thead>
+                <tr>
+                  <th scope="col">Comparison</th>
+                  <th scope="col">Metric</th>
+                  <th scope="col">Std error A</th>
+                  <th scope="col">Std error</th>
+                  <th scope="col">T-score</th>
+                  <th scope="col">df</th>
+                  <th scope="col">p-value</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rpvResults.map((r, i) => {
+                  const c = rpvComparisons[i];
+                  return (
+                    <tr key={`rpv-${r.name}`}>
+                      <th scope="row">{r.name} vs A</th>
+                      <td data-label="Metric">RPV</td>
+                      <td data-label="Std error A">{c ? fmtMoney(c.seA) : "-"}</td>
+                      <td data-label="Std error">{c ? fmtMoney(c.seB) : "-"}</td>
+                      <td data-label="T-score">{r.t.toFixed(4)}</td>
+                      <td data-label="df">{Number.isFinite(r.df) ? r.df.toFixed(1) : "-"}</td>
+                      <td data-label="p-value">{fmtP(r.pAdj)}</td>
+                    </tr>
+                  );
+                })}
+                {aovResults.map((r, i) => {
+                  const c = aovComparisons[i];
+                  return (
+                    <tr key={`aov-${r.name}`}>
+                      <th scope="row">{r.name} vs A</th>
+                      <td data-label="Metric">AOV</td>
+                      <td data-label="Std error A">{c ? fmtMoney(c.seA) : "-"}</td>
+                      <td data-label="Std error">{c ? fmtMoney(c.seB) : "-"}</td>
+                      <td data-label="T-score">{r.t.toFixed(4)}</td>
+                      <td data-label="df">{Number.isFinite(r.df) ? r.df.toFixed(1) : "-"}</td>
+                      <td data-label="p-value">{fmtP(r.pAdj)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="detail-formula">
+            Welch's t-test · SE<sub>mean</sub> = s / √n ·
+            {twoTailed ? " two-tailed" : " one-tailed"} at {Math.round(confidence * 100)}% confidence
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   relUplift, pRaw, pAdj, corrected, ciBase, ciVar, baseCiLabel, varCiLabel,
-  confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore, goal = "increase", skewVerdict }) {
+  confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore, goal = "increase", skewVerdict,
+  sdBase, sdVar, baseSdLabel, varSdLabel }) {
   const [showDetails, setShowDetails] = useState(false);
   const alpha = 1 - confidence;
   const decisionP = corrected ? pAdj : pRaw;
@@ -1815,6 +1925,18 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
               <div className="v2-d-col">
                 <span className="v2-d-label">{varCiLabel || "Variant"} ({confPct}% CI)</span>
                 <span className="v2-d-val">{fmtCi(ciVar[0], ciVar[1])}</span>
+              </div>
+            )}
+            {sdBase != null && Number.isFinite(sdBase) && (
+              <div className="v2-d-col">
+                <span className="v2-d-label">{baseSdLabel || "Control std dev"}</span>
+                <span className="v2-d-val">{fmtMoney(sdBase)}</span>
+              </div>
+            )}
+            {sdVar != null && Number.isFinite(sdVar) && (
+              <div className="v2-d-col">
+                <span className="v2-d-label">{varSdLabel || "Variant std dev"}</span>
+                <span className="v2-d-val">{fmtMoney(sdVar)}</span>
               </div>
             )}
           </div>
@@ -2901,6 +3023,8 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   relUplift={r.relUplift} pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
                   ciBase={r.ciMeanA} ciVar={r.ciMeanB}
                   baseCiLabel="Variant A Revenue Per Visitor" varCiLabel={`${r.name} Revenue Per Visitor`}
+                  sdBase={analysis.armStats[0].rpv.s} sdVar={analysis.armStats[i + 1].rpv.s}
+                  baseSdLabel="Variant A RPV std dev" varSdLabel={`${r.name} RPV std dev`}
                   ciFmt={(lo, hi) => `${fmtMoney(lo)} – ${fmtMoney(hi)}`}
                   confidence={confidence} twoTailed={twoTailed}
                   zScore={{ label: "T-score", value: r.t, df: r.df }}
@@ -2939,6 +3063,13 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 />
               ))}
             </div>
+            <RevenueDetailedStats
+              armStats={analysis.armStats}
+              rpvResults={analysis.rpv}
+              aovResults={analysis.aov}
+              confidence={confidence}
+              twoTailed={twoTailed}
+            />
           </>
         )}
       </section>
