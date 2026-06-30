@@ -331,6 +331,33 @@ function uploadSizeError(file) {
   return `File is too large (${mb} MB). Maximum size is 10 MB.`;
 }
 
+const DUPLICATE_FILENAME_ERR =
+  "This filename is already uploaded for another variant — upload a separate file per variant.";
+
+function applyDuplicateFilenameErrors(parsed, k) {
+  const next = parsed.map(entry => {
+    if (!entry) return entry;
+    const errors = (entry.errors || []).filter(e => e !== DUPLICATE_FILENAME_ERR);
+    return { ...entry, errors };
+  });
+
+  const nameCounts = {};
+  for (let i = 0; i < k; i++) {
+    const name = next[i]?.name?.trim().toLowerCase();
+    if (name) nameCounts[name] = (nameCounts[name] || 0) + 1;
+  }
+
+  for (let i = 0; i < k; i++) {
+    if (!next[i]?.name) continue;
+    const key = next[i].name.trim().toLowerCase();
+    if (nameCounts[key] > 1) {
+      next[i] = { ...next[i], errors: [...(next[i].errors || []), DUPLICATE_FILENAME_ERR] };
+    }
+  }
+
+  return next;
+}
+
 function downloadBlob(content, filename, type) {
   const blob = new Blob([content], { type });
   const url = URL.createObjectURL(blob);
@@ -1732,10 +1759,9 @@ function buildMetricComparisons(armStats, metricKey) {
   });
 }
 
-function RevenueDetailedStats({ armStats, rpvResults, aovResults, confidence, twoTailed }) {
+function MetricDetailedStats({ armStats, metricKey, metricShort, caption, results, confidence, twoTailed }) {
   const [open, setOpen] = useState(false);
-  const rpvComparisons = buildMetricComparisons(armStats, "rpv");
-  const aovComparisons = buildMetricComparisons(armStats, "aov");
+  const comparisons = buildMetricComparisons(armStats, metricKey);
 
   return (
     <div className="detail-wrap">
@@ -1746,19 +1772,12 @@ function RevenueDetailedStats({ armStats, rpvResults, aovResults, confidence, tw
       </button>
       {open && (
         <div className="detail-card">
-          <h4 className="detail-title">Revenue per visitor — expected distributions</h4>
+          <h4 className="detail-title">Expected distributions</h4>
           <MetricDistributionChart
-            comparisons={rpvComparisons}
+            comparisons={comparisons}
             formatX={(v) => fmtMoney(v)}
-            formatTooltipLabel={(x) => `RPV ${fmtMoney(x)}`}
-            caption="Expected spread of each variant's true revenue per visitor (non-buyers count as £0). The more the curves overlap, the harder it is to detect a difference."
-          />
-          <h4 className="detail-title">Average order value — expected distributions</h4>
-          <MetricDistributionChart
-            comparisons={aovComparisons}
-            formatX={(v) => fmtMoney(v)}
-            formatTooltipLabel={(x) => `AOV ${fmtMoney(x)}`}
-            caption="Expected spread of each variant's true average order value among buyers only. Overlap here means similar order sizes, even if conversion or RPV differ."
+            formatTooltipLabel={(x) => `${metricShort} ${fmtMoney(x)}`}
+            caption={caption}
           />
           <h4 className="detail-title">The numbers</h4>
           <div className="detail-table-wrap">
@@ -1766,7 +1785,6 @@ function RevenueDetailedStats({ armStats, rpvResults, aovResults, confidence, tw
               <thead>
                 <tr>
                   <th scope="col">Comparison</th>
-                  <th scope="col">Metric</th>
                   <th scope="col">Std error A</th>
                   <th scope="col">Std error</th>
                   <th scope="col">T-score</th>
@@ -1775,26 +1793,11 @@ function RevenueDetailedStats({ armStats, rpvResults, aovResults, confidence, tw
                 </tr>
               </thead>
               <tbody>
-                {rpvResults.map((r, i) => {
-                  const c = rpvComparisons[i];
+                {results.map((r, i) => {
+                  const c = comparisons[i];
                   return (
-                    <tr key={`rpv-${r.name}`}>
+                    <tr key={r.name}>
                       <th scope="row">{r.name} vs A</th>
-                      <td data-label="Metric">RPV</td>
-                      <td data-label="Std error A">{c ? fmtMoney(c.seA) : "-"}</td>
-                      <td data-label="Std error">{c ? fmtMoney(c.seB) : "-"}</td>
-                      <td data-label="T-score">{r.t.toFixed(4)}</td>
-                      <td data-label="df">{Number.isFinite(r.df) ? r.df.toFixed(1) : "-"}</td>
-                      <td data-label="p-value">{fmtP(r.pAdj)}</td>
-                    </tr>
-                  );
-                })}
-                {aovResults.map((r, i) => {
-                  const c = aovComparisons[i];
-                  return (
-                    <tr key={`aov-${r.name}`}>
-                      <th scope="row">{r.name} vs A</th>
-                      <td data-label="Metric">AOV</td>
                       <td data-label="Std error A">{c ? fmtMoney(c.seA) : "-"}</td>
                       <td data-label="Std error">{c ? fmtMoney(c.seB) : "-"}</td>
                       <td data-label="T-score">{r.t.toFixed(4)}</td>
@@ -2691,14 +2694,18 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
       setFileParsed(prev => {
         const n = [...prev];
         n[i] = { values: [], errors: [sizeErr], name: file.name };
-        return n;
+        return applyDuplicateFilenameErrors(n, k);
       });
       return;
     }
     const reader = new FileReader();
     reader.onload = e => {
       const { values, errors } = parseRevenueFile(e.target.result, fileFormat);
-      setFileParsed(prev => { const n=[...prev]; n[i]={ values, errors, name: file.name }; return n; });
+      setFileParsed(prev => {
+        const n = [...prev];
+        n[i] = { values, errors, name: file.name };
+        return applyDuplicateFilenameErrors(n, k);
+      });
     };
     reader.readAsText(file);
   };
@@ -3037,6 +3044,16 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 />
               ))}
 
+              <MetricDetailedStats
+                armStats={analysis.armStats}
+                metricKey="rpv"
+                metricShort="RPV"
+                caption="Expected spread of each variant's true revenue per visitor (non-buyers count as £0). The more the curves overlap, the harder it is to detect a difference."
+                results={analysis.rpv}
+                confidence={confidence}
+                twoTailed={twoTailed}
+              />
+
               <h3 className="sub-title"><Explainer id="aovrpv" inline label="Average order value" /></h3>
               <div className="aov-warning">
                 <strong>Important:</strong> Average order value only looks at people who made an order. 
@@ -3062,14 +3079,17 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   }
                 />
               ))}
+
+              <MetricDetailedStats
+                armStats={analysis.armStats}
+                metricKey="aov"
+                metricShort="AOV"
+                caption="Expected spread of each variant's true average order value among buyers only. Overlap here means similar order sizes, even if conversion or RPV differ."
+                results={analysis.aov}
+                confidence={confidence}
+                twoTailed={twoTailed}
+              />
             </div>
-            <RevenueDetailedStats
-              armStats={analysis.armStats}
-              rpvResults={analysis.rpv}
-              aovResults={analysis.aov}
-              confidence={confidence}
-              twoTailed={twoTailed}
-            />
           </>
         )}
       </section>
