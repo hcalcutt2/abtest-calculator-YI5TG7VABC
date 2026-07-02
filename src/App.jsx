@@ -4,6 +4,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip as ChartTip, ResponsiveContainer,
 } from "recharts";
+import { ADVANCED_TOOLS } from "./shared/advancedTools.js";
 
 /* ════════════════════════════════════════════════════════════════
    ECLIPSE · A/B/n Test Calculator
@@ -318,9 +319,26 @@ function srmCheck(counts, allocPcts) {
 /* ──────────────────────── Formatting (§8.4) ───────────────────── */
 
 const fmtInt = (n) => Number.isFinite(n) ? Math.round(n).toLocaleString("en-GB") : "-";
-const fmtPct = (x, dp = 2) => Number.isFinite(x) ? `${(x * 100).toFixed(dp)}%` : "-";
-const fmtSignedPct = (x, dp = 2) =>
-  Number.isFinite(x) ? `${x >= 0 ? "+" : "−"}${Math.abs(x * 100).toFixed(dp)}%` : "-";
+/** Format proportion as %; snaps float noise so 0.34 never renders as 33.99% */
+const fmtPct = (x, dp = 2) => {
+  if (!Number.isFinite(x)) return "-";
+  const scale = 10 ** dp;
+  const pct = Math.round(x * 100 * scale) / scale;
+  return `${pct.toFixed(dp)}%`;
+};
+/** CVR from integer counts without intermediate float drift */
+const fmtCvrFromCounts = (c, v, dp = 2) => {
+  if (!Number.isInteger(v) || v <= 0 || !Number.isInteger(c) || c < 0 || c > v) return "-";
+  const scale = 10 ** dp;
+  const pct = Math.round((c * 100 * scale) / v) / scale;
+  return `${pct.toFixed(dp)}%`;
+};
+const fmtSignedPct = (x, dp = 2) => {
+  if (!Number.isFinite(x)) return "-";
+  const scale = 10 ** dp;
+  const pct = Math.round(Math.abs(x) * 100 * scale) / scale;
+  return `${x >= 0 ? "+" : "−"}${pct.toFixed(dp)}%`;
+};
 const fmtP = (p) => !Number.isFinite(p) ? "-" : p < 0.0001 ? "< 0.0001" : p.toFixed(4);
 const fmtMoney = (x, dp = 2) =>
   Number.isFinite(x) ? x.toLocaleString("en-GB", { minimumFractionDigits: dp, maximumFractionDigits: dp }) : "-";
@@ -740,6 +758,30 @@ function DetectableUpliftSection({ chart, viewMode, setViewMode }) {
   );
 }
 
+function OtherCalculatorsSection() {
+  return (
+    <section className="other-calculators" id="other-calculators" aria-labelledby="other-calc-heading">
+      <h2 id="other-calc-heading" className="other-calculators-title">Other calculators</h2>
+      <p className="other-calculators-intro">
+        Specialised tools for scenarios the main calculator does not cover. Each opens on its own page
+        with guidance on when to use it and warnings about common pitfalls.
+      </p>
+      <div className="other-calc-grid">
+        {ADVANCED_TOOLS.map((tool) => (
+          <a key={tool.path} href={`#${tool.path}`} className="other-calc-card">
+            <span className="other-calc-tag">{tool.tag}</span>
+            <h3 className="other-calc-card-title">{tool.title}</h3>
+            <p className="other-calc-card-desc">{tool.desc}</p>
+          </a>
+        ))}
+      </div>
+      <p className="other-calculators-foot">
+        <a href="#/advanced" className="other-calculators-all">View all with full introductions</a>
+      </p>
+    </section>
+  );
+}
+
 function FaqSection() {
   return (
     <section className="faq-section" aria-labelledby="faq-heading">
@@ -955,8 +997,14 @@ function AllocationEditor({ alloc, setAlloc, labels, idPrefix }) {
   );
 }
 
-const equalSplit = (k) =>
-  Array.from({ length: k }, () => Math.round((100 / k) * 100) / 100);
+function equalSplit(k) {
+  const slots = Math.max(2, Math.min(8, k));
+  const base = Math.floor((100 / slots) * 100) / 100;
+  const values = Array.from({ length: slots }, () => base);
+  const sumExceptLast = base * (slots - 1);
+  values[slots - 1] = Math.round((100 - sumExceptLast) * 100) / 100;
+  return values.map(String);
+}
 
 // Variant labels: control is Variant A, challengers B, C, D… (industry standard A/B/n).
 const LETTERS = ["A", "B", "C", "D", "E", "F", "G", "H"];
@@ -2150,9 +2198,10 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
                     onChange={(e) => setRows(rows.map((x, j) => j === i ? { ...x, conversions: e.target.value } : x))} />
                 </Field>
                 <div className="field">
-                  <span className="field-label">Conversion rate</span>
-                  <output className="cvr-readout num" htmlFor={`cvr-v-${i} cvr-c-${i}`}>
-                    {cvr != null ? fmtPct(cvr) : "-"}
+                  <span className="field-label">Conversion rate (calculated)</span>
+                  <output className="cvr-readout num" htmlFor={`cvr-v-${i} cvr-c-${i}`}
+                    title="Derived from visitors and conversions. Not an editable field">
+                    {cvr != null ? fmtCvrFromCounts(c, v) : "-"}
                   </output>
                 </div>
               </div>
@@ -3122,6 +3171,405 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   );
 }
 
+/* ───────────────────────── Stat playground ──────────────────────── */
+
+function PlaygroundRange({ label, hint, value, onChange, min, max, step, display, id }) {
+  const autoId = React.useId();
+  const inputId = id || autoId;
+  const fmt = display || ((v) => String(v));
+  return (
+    <Field label={label} hint={hint} htmlFor={inputId}>
+      <div className="playground-range">
+        <input
+          id={inputId}
+          type="range"
+          className="playground-range-input"
+          min={min}
+          max={max}
+          step={step}
+          value={value}
+          onChange={(e) => onChange(Number(e.target.value))}
+          aria-valuetext={fmt(value)}
+        />
+        <output className="playground-range-val" htmlFor={inputId}>{fmt(value)}</output>
+      </div>
+    </Field>
+  );
+}
+
+function StatPlayground({ confidence, power, twoTailed }) {
+  const [lesson, setLesson] = useState("significance");
+  const [planViewMode, setPlanViewMode] = useState("chart");
+
+  const alpha = 1 - confidence;
+  const confPct = Math.round(confidence * 100);
+
+  // Lesson 1: significance & distribution overlap
+  const [ctrlPct, setCtrlPct] = useState(5);
+  const [varPct, setVarPct] = useState(5.5);
+  const [nPerArm, setNPerArm] = useState(10000);
+
+  const sig = useMemo(() => {
+    const p1 = ctrlPct / 100;
+    const p2 = varPct / 100;
+    if (nPerArm < 10 || !(p1 > 0 && p1 < 1) || !(p2 > 0 && p2 < 1)) return null;
+    const c1 = Math.round(p1 * nPerArm);
+    const c2 = Math.round(p2 * nPerArm);
+    const test = twoPropTest(c1, nPerArm, c2, nPerArm, alpha, twoTailed);
+    const significant = test.pRaw < alpha;
+    const relUplift = test.relUplift;
+    let narrative;
+    if (Math.abs(relUplift) < 0.0001) {
+      narrative = "Control and variant rates are the same. With any sample size, a difference this small is just noise.";
+    } else if (significant) {
+      narrative = relUplift > 0
+        ? `At ${confPct}% confidence, this gap is unlikely to be luck alone. The variant rate looks genuinely higher.`
+        : `At ${confPct}% confidence, this gap is unlikely to be luck alone. The variant rate looks genuinely lower.`;
+    } else {
+      narrative = `At ${confPct}% confidence, the curves still overlap enough that this could be random noise. Try increasing visitors per variant or waiting for a larger gap.`;
+    }
+    return { ...test, p1, p2, c1, c2, significant, narrative };
+  }, [ctrlPct, varPct, nPerArm, alpha, twoTailed, confPct]);
+
+  const sigComparison = sig
+    ? [{ name: "Variant B", p1: sig.p1, p2: sig.p2, seA: sig.seA, seB: sig.seB }]
+    : [];
+
+  // Lesson 2: sample size & power
+  const [basePct, setBasePct] = useState(3);
+  const [mdePct, setMdePct] = useState(10);
+  const [weeklyTraffic, setWeeklyTraffic] = useState(50000);
+
+  const plan = useMemo(() => {
+    const p1 = basePct / 100;
+    const mdeRel = mdePct / 100;
+    if (!(p1 > 0 && p1 < 1) || !(mdeRel > 0) || p1 * (1 + mdeRel) >= 1) return null;
+    const n = requiredNPerArm(p1, mdeRel, alpha, power, twoTailed);
+    if (!Number.isFinite(n)) return null;
+    const perArmWeekly = weeklyTraffic / 2;
+    const weeks = perArmWeekly > 0 ? Math.ceil(n / perArmWeekly) : null;
+    const chart = [];
+    for (let w = 1; w <= 12; w++) {
+      const nAvail = Math.floor(perArmWeekly * w);
+      const d = detectableMde(p1, nAvail, alpha, power, twoTailed);
+      chart.push({ week: w, mde: d != null ? +(d * 100).toFixed(2) : null });
+    }
+    return {
+      n,
+      total: n * 2,
+      weeks,
+      target: p1 * (1 + mdeRel),
+      chart,
+    };
+  }, [basePct, mdePct, alpha, power, twoTailed, weeklyTraffic]);
+
+  // Lesson 3: confidence threshold on fixed data
+  const [threshCtrl, setThreshCtrl] = useState(4);
+  const [threshVar, setThreshVar] = useState(4.4);
+  const [threshN, setThreshN] = useState(8000);
+  const [playConf, setPlayConf] = useState(confidence);
+
+  const thresh = useMemo(() => {
+    const p1 = threshCtrl / 100;
+    const p2 = threshVar / 100;
+    if (threshN < 10 || !(p1 > 0 && p1 < 1) || !(p2 > 0 && p2 < 1)) return null;
+    const c1 = Math.round(p1 * threshN);
+    const c2 = Math.round(p2 * threshN);
+    const rows = [0.9, 0.95, 0.99].map((c) => {
+      const a = 1 - c;
+      const t = twoPropTest(c1, threshN, c2, threshN, a, twoTailed);
+      return {
+        conf: Math.round(c * 100),
+        alpha: a,
+        p: t.pRaw,
+        significant: t.pRaw < a,
+      };
+    });
+    const active = twoPropTest(c1, threshN, c2, threshN, 1 - playConf, twoTailed);
+    return { rows, active, c1, c2, p1, p2 };
+  }, [threshCtrl, threshVar, threshN, playConf, twoTailed]);
+
+  return (
+    <div className="playground">
+      <p className="playground-intro">
+        Move the sliders and watch the numbers and charts update. Everything runs in your browser.
+      </p>
+
+      <div className="sub-tabs playground-lessons" role="tablist" aria-label="Concept to explore">
+        <button type="button" role="tab" className={`subtab ${lesson === "significance" ? "subtab-on" : ""}`}
+          aria-selected={lesson === "significance"} onClick={() => setLesson("significance")}>
+          Significance & overlap
+        </button>
+        <button type="button" role="tab" className={`subtab ${lesson === "samplesize" ? "subtab-on" : ""}`}
+          aria-selected={lesson === "samplesize"} onClick={() => setLesson("samplesize")}>
+          Sample size & power
+        </button>
+        <button type="button" role="tab" className={`subtab ${lesson === "confidence" ? "subtab-on" : ""}`}
+          aria-selected={lesson === "confidence"} onClick={() => setLesson("confidence")}>
+          Confidence levels
+        </button>
+      </div>
+
+      {lesson === "significance" && (
+        <div className="two-col">
+          <section className="panel" aria-labelledby="pg-sig-h">
+            <h2 id="pg-sig-h" className="panel-title">Adjust the scenario</h2>
+            <p className="field-hint">
+              Two variants, equal traffic. See how rate gaps and sample size change whether you would call a winner.
+            </p>
+            <PlaygroundRange
+              label="Control conversion rate"
+              value={ctrlPct}
+              onChange={setCtrlPct}
+              min={0.5}
+              max={30}
+              step={0.1}
+              display={(v) => `${v.toFixed(1)}%`}
+            />
+            <PlaygroundRange
+              label="Variant conversion rate"
+              value={varPct}
+              onChange={setVarPct}
+              min={0.5}
+              max={30}
+              step={0.1}
+              display={(v) => `${v.toFixed(1)}%`}
+            />
+            <PlaygroundRange
+              label="Visitors per variant"
+              value={nPerArm}
+              onChange={setNPerArm}
+              min={500}
+              max={100000}
+              step={500}
+              display={(v) => fmtInt(v)}
+            />
+          </section>
+
+          <section className="panel results" aria-live="polite" aria-labelledby="pg-sig-r">
+            <h2 id="pg-sig-r" className="panel-title">What the stats say</h2>
+            {sig ? (
+              <>
+                <div className="test-chip-row">
+                  <div className={`test-pill ${sig.significant ? "test-pill-win" : ""}`}>
+                    {sig.significant ? "Significant" : "Not significant"}
+                  </div>
+                  <div className="test-pill">p = {fmtP(sig.pRaw)}</div>
+                  <div className="test-pill">z = {sig.z.toFixed(3)}</div>
+                </div>
+                <div className="stat-row">
+                  <div className="stat">
+                    <div className="stat-label">Control</div>
+                    <div className="stat-num">{fmtPct(sig.p1)}</div>
+                    <div className="stat-sub-label">{fmtInt(sig.c1)} / {fmtInt(nPerArm)}</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-label">Variant</div>
+                    <div className="stat-num">{fmtPct(sig.p2)}</div>
+                    <div className="stat-sub-label">{fmtInt(sig.c2)} / {fmtInt(nPerArm)}</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-label">Relative uplift</div>
+                    <div className="stat-num">{fmtSignedPct(sig.relUplift)}</div>
+                  </div>
+                </div>
+                {sig.ciLo != null && (
+                  <p className="derived-line">
+                    Relative uplift {confPct}% CI: {fmtSignedPct(sig.ciLo)} to {fmtSignedPct(sig.ciHi)}
+                  </p>
+                )}
+                <MetricDistributionChart
+                  comparisons={sigComparison}
+                  formatX={(v) => (v * 100).toFixed(2)}
+                  formatTooltipLabel={(x) => `CVR ${(x * 100).toFixed(3)}%`}
+                  caption="Each curve shows where the true rate could plausibly sit. More overlap = harder to tell variants apart."
+                />
+                <div className="playground-callout">{sig.narrative}</div>
+              </>
+            ) : (
+              <p className="empty">Adjust the sliders to explore.</p>
+            )}
+          </section>
+        </div>
+      )}
+
+      {lesson === "samplesize" && (
+        <div className="two-col">
+          <section className="panel" aria-labelledby="pg-plan-h">
+            <h2 id="pg-plan-h" className="panel-title">Plan a test</h2>
+            <p className="field-hint">
+              How many visitors you need depends on baseline rate, the uplift you want to detect, power, and confidence.
+            </p>
+            <PlaygroundRange
+              label="Baseline conversion rate"
+              value={basePct}
+              onChange={setBasePct}
+              min={0.5}
+              max={20}
+              step={0.1}
+              display={(v) => `${v.toFixed(1)}%`}
+            />
+            <PlaygroundRange
+              label="Minimum detectable effect (relative uplift)"
+              value={mdePct}
+              onChange={setMdePct}
+              min={1}
+              max={50}
+              step={1}
+              display={(v) => `${v}%`}
+            />
+            <PlaygroundRange
+              label="Combined weekly traffic (50/50 split)"
+              value={weeklyTraffic}
+              onChange={setWeeklyTraffic}
+              min={1000}
+              max={500000}
+              step={1000}
+              display={(v) => fmtInt(v)}
+            />
+            <p className="field-hint">
+              Power and confidence come from the settings above ({Math.round(power * 100)}% power, {confPct}% confidence).
+            </p>
+          </section>
+
+          <section className="panel results" aria-live="polite" aria-labelledby="pg-plan-r">
+            <h2 id="pg-plan-r" className="panel-title">Required sample</h2>
+            {plan ? (
+              <>
+                <div className="stat-row">
+                  <div className="stat stat-hero">
+                    <div className="stat-label">Visitors per variant</div>
+                    <div className="stat-num">{fmtInt(plan.n)}</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-label">Total visitors</div>
+                    <div className="stat-num">{fmtInt(plan.total)}</div>
+                  </div>
+                  {plan.weeks != null && (
+                    <div className="stat">
+                      <div className="stat-label">Est. duration</div>
+                      <div className="stat-num">{plan.weeks} wk</div>
+                    </div>
+                  )}
+                </div>
+                <p className="derived-line">
+                  Target variant rate: {fmtPct(plan.target)} ({fmtPct(basePct / 100)} + {mdePct}% relative)
+                </p>
+                <DetectableUpliftSection chart={plan.chart} viewMode={planViewMode} setViewMode={setPlanViewMode} />
+                <div className="playground-callout">
+                  {plan.weeks != null && plan.weeks <= 12
+                    ? `At your traffic level, you would need about ${plan.weeks} week${plan.weeks === 1 ? "" : "s"} to reach ${fmtInt(plan.n)} visitors per variant.`
+                    : "Smaller uplifts or higher power need much more traffic. Use the chart to see what becomes detectable as you run longer."}
+                </div>
+              </>
+            ) : (
+              <p className="empty">Adjust baseline and MDE to see sample size.</p>
+            )}
+          </section>
+        </div>
+      )}
+
+      {lesson === "confidence" && (
+        <div className="two-col">
+          <section className="panel" aria-labelledby="pg-conf-h">
+            <h2 id="pg-conf-h" className="panel-title">Same data, different bar</h2>
+            <p className="field-hint">
+              Stricter confidence (99% vs 90%) means you need stronger evidence before calling a winner.
+            </p>
+            <PlaygroundRange
+              label="Control conversion rate"
+              value={threshCtrl}
+              onChange={setThreshCtrl}
+              min={0.5}
+              max={20}
+              step={0.1}
+              display={(v) => `${v.toFixed(1)}%`}
+            />
+            <PlaygroundRange
+              label="Variant conversion rate"
+              value={threshVar}
+              onChange={setThreshVar}
+              min={0.5}
+              max={20}
+              step={0.1}
+              display={(v) => `${v.toFixed(1)}%`}
+            />
+            <PlaygroundRange
+              label="Visitors per variant"
+              value={threshN}
+              onChange={setThreshN}
+              min={500}
+              max={50000}
+              step={500}
+              display={(v) => fmtInt(v)}
+            />
+            <PlaygroundRange
+              label="Confidence level to test"
+              value={playConf}
+              onChange={setPlayConf}
+              min={0.9}
+              max={0.99}
+              step={0.01}
+              display={(v) => `${Math.round(v * 100)}%`}
+            />
+          </section>
+
+          <section className="panel results" aria-live="polite" aria-labelledby="pg-conf-r">
+            <h2 id="pg-conf-r" className="panel-title">Would you call it?</h2>
+            {thresh ? (
+              <>
+                <div className="stat-row">
+                  <div className="stat">
+                    <div className="stat-label">Relative uplift</div>
+                    <div className="stat-num">{fmtSignedPct(thresh.active.relUplift)}</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-label">p-value</div>
+                    <div className="stat-num">{fmtP(thresh.active.pRaw)}</div>
+                  </div>
+                  <div className="stat">
+                    <div className="stat-label">At {Math.round(playConf * 100)}%</div>
+                    <div className={`stat-num ${thresh.active.pRaw < 1 - playConf ? "text-win" : ""}`}>
+                      {thresh.active.pRaw < 1 - playConf ? "Significant" : "Not yet"}
+                    </div>
+                  </div>
+                </div>
+                <div className="detail-table-wrap">
+                  <table className="detail-table">
+                    <thead>
+                      <tr>
+                        <th scope="col">Confidence</th>
+                        <th scope="col">p-value threshold</th>
+                        <th scope="col">Verdict</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {thresh.rows.map((r) => (
+                        <tr key={r.conf} className={Math.round(playConf * 100) === r.conf ? "playground-row-active" : ""}>
+                          <th scope="row">{r.conf}%</th>
+                          <td data-label="Threshold">&lt; {r.alpha.toFixed(2)}</td>
+                          <td data-label="Verdict">{r.significant ? "Significant" : "Not significant"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="playground-callout">
+                  {thresh.active.pRaw < 1 - playConf
+                    ? `At ${Math.round(playConf * 100)}% confidence, p = ${fmtP(thresh.active.pRaw)} clears the bar. You would call this result significant.`
+                    : `At ${Math.round(playConf * 100)}% confidence, p = ${fmtP(thresh.active.pRaw)} is above the ${(1 - playConf).toFixed(2)} threshold. You would not call it yet.`}
+                </div>
+              </>
+            ) : (
+              <p className="empty">Adjust the sliders to explore.</p>
+            )}
+          </section>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ───────────────────────── App shell ──────────────────────────── */
 
 const ThemeToggle = ({ theme, toggle }) => (
@@ -3152,8 +3600,8 @@ const ThemeToggle = ({ theme, toggle }) => (
   </button>
 );
 
-export default function EclipseCalculator() {
-  const [theme, setTheme] = useState(() => {
+export default function EclipseCalculator({ theme: themeProp, toggleTheme: toggleThemeProp }) {
+  const [internalTheme, setInternalTheme] = useState(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('eclipse-theme');
       if (saved) return saved;
@@ -3162,12 +3610,14 @@ export default function EclipseCalculator() {
     return 'light';
   });
 
+  const theme = themeProp ?? internalTheme;
+
   React.useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('eclipse-theme', theme);
   }, [theme]);
 
-  const toggleTheme = () => setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  const toggleTheme = toggleThemeProp ?? (() => setInternalTheme(prev => prev === 'light' ? 'dark' : 'light'));
 
   const [mode, setMode] = useState("pre");
   const [preTab, setPreTab] = useState("cvr");
@@ -3232,7 +3682,7 @@ export default function EclipseCalculator() {
         </div>
       </header>
 
-      <nav className="mode-tabs" aria-label="Calculator mode">
+      <nav className="mode-tabs mode-tabs-3" aria-label="Calculator mode">
         <button type="button" className={`tab ${mode === "pre" ? "tab-on" : ""}`}
           aria-pressed={mode === "pre"} onClick={() => setMode("pre")}>
           Plan a test
@@ -3243,9 +3693,15 @@ export default function EclipseCalculator() {
           Analyse results
           <span className="tab-sub">Significance & uplift</span>
         </button>
+        <button type="button" className={`tab ${mode === "learn" ? "tab-on" : ""}`}
+          aria-pressed={mode === "learn"} onClick={() => setMode("learn")}>
+          Explore concepts
+          <span className="tab-sub">Interactive stats guide</span>
+        </button>
       </nav>
 
       <div className="calculator-container" style={{ maxWidth: '1080px', margin: '24px auto 0' }}>
+        {mode !== "learn" && (
         <MetricSelector 
           currentTab={mode === 'pre' ? preTab : postTab} 
           setTab={mode === 'pre' ? setPreTab : setPostTab} 
@@ -3253,8 +3709,9 @@ export default function EclipseCalculator() {
           setRevMetric={setRevMetric} 
           mode={mode}
         />
+        )}
 
-        <section className="settings" aria-label="Statistical settings" key={`settings-${mode}-${mode === "pre" ? preTab : postTab}`} style={{ marginTop: '24px' }}>
+        <section className="settings" aria-label="Statistical settings" key={`settings-${mode}-${mode === "pre" ? preTab : mode === "post" ? postTab : "learn"}`} style={{ marginTop: '24px' }}>
           <SegControl
             legend="Confidence level"
             name="conf"
@@ -3267,7 +3724,21 @@ export default function EclipseCalculator() {
               { value: 0.99, label: "99%" },
             ]}
           />
-          {mode === "post" && postTab === "cvr" ? (
+          {mode === "learn" ? (
+            <>
+              <SegControl
+                legend="Tails"
+                name="learn-tails"
+                value={tails}
+                onChange={setTails}
+                explainerId="tailed"
+                options={[
+                  { value: "two", label: "Two-tailed" },
+                  { value: "one", label: "One-tailed" },
+                ]}
+              />
+            </>
+          ) : mode === "post" && postTab === "cvr" ? (
             <>
               <SegControl
                 legend="Tails"
@@ -3355,30 +3826,37 @@ export default function EclipseCalculator() {
         </section>
 
         <div style={{ marginTop: '24px' }}>
-          {mode === "pre" ? (
-            preTab === "cvr" 
-              ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} goal={goal} />
-              : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} revMetric={revMetric} />
-          ) : (
-            postTab === "cvr"
-              ? <PostCvr key="cvr" confidence={confidence}
-                twoTailed={cvrTestType === "two"}
-                isNonInf={cvrTestType === "noninf"}
-                goal={goal}
-                marginPct={marginPct}
-                k={k} rows={rows} setRows={setRows}
-                alloc={alloc} setAlloc={setAlloc}
-                setVariantCount={setVariantCount}
-                durationDays={durationDays} setDurationDays={setDurationDays} />
-              : <PostRevenue key="rev" confidence={confidence} twoTailed={twoTailed}
-                k={k} rows={rows}
-                alloc={alloc} setAlloc={setAlloc}
-                setVariantCount={setVariantCount}
-                durationDays={durationDays} setDurationDays={setDurationDays} />
-          )}
+          <div className={mode === "learn" ? "" : "panel-hidden"} aria-hidden={mode !== "learn"}>
+            <StatPlayground confidence={confidence} power={power} twoTailed={twoTailed} />
+          </div>
+          <div className={mode === "pre" && preTab === "cvr" ? "" : "panel-hidden"} aria-hidden={mode !== "pre" || preTab !== "cvr"}>
+            <PreTest confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} goal={goal} />
+          </div>
+          <div className={mode === "pre" && preTab === "revenue" ? "" : "panel-hidden"} aria-hidden={mode !== "pre" || preTab !== "revenue"}>
+            <PreTestRevenue confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} revMetric={revMetric} />
+          </div>
+          <div className={mode === "post" && postTab === "cvr" ? "" : "panel-hidden"} aria-hidden={mode !== "post" || postTab !== "cvr"}>
+            <PostCvr confidence={confidence}
+              twoTailed={cvrTestType === "two"}
+              isNonInf={cvrTestType === "noninf"}
+              goal={goal}
+              marginPct={marginPct}
+              k={k} rows={rows} setRows={setRows}
+              alloc={alloc} setAlloc={setAlloc}
+              setVariantCount={setVariantCount}
+              durationDays={durationDays} setDurationDays={setDurationDays} />
+          </div>
+          <div className={mode === "post" && postTab === "revenue" ? "" : "panel-hidden"} aria-hidden={mode !== "post" || postTab !== "revenue"}>
+            <PostRevenue confidence={confidence} twoTailed={twoTailed}
+              k={k} rows={rows}
+              alloc={alloc} setAlloc={setAlloc}
+              setVariantCount={setVariantCount}
+              durationDays={durationDays} setDurationDays={setDurationDays} />
+          </div>
         </div>
       </div>
 
+      <OtherCalculatorsSection />
       <FaqSection />
     </div>
   );
@@ -3489,6 +3967,27 @@ const CSS = `
 .intro-privacy{color:var(--muted);font-size:13.5px;line-height:1.5;margin:10px 0 0;max-width:65ch;opacity:0.9;}
 [data-theme='dark'] .intro-text{color:var(--muted);}
 [data-theme='dark'] .intro-privacy{color:var(--muted);}
+
+/* other calculators */
+.other-calculators{max-width:1080px;margin:48px auto 0;padding-top:8px;}
+.other-calculators-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:22px;
+  letter-spacing:-0.02em;color:var(--navy);margin:0 0 10px;}
+.other-calculators-intro{color:var(--muted);font-size:15px;line-height:1.55;margin:0 0 20px;max-width:62ch;}
+.other-calc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:18px;}
+.other-calc-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:20px;
+  box-shadow:var(--shadow);text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:10px;transition:border-color .15s;}
+.other-calc-card:hover{border-color:var(--purple);}
+.other-calc-tag{font-size:12px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
+  border-radius:999px;padding:4px 10px;align-self:flex-start;}
+.other-calc-card-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:17px;margin:0;color:var(--navy);}
+.other-calc-card-desc{color:var(--muted);font-size:14px;line-height:1.5;margin:0;flex:1;}
+.other-calculators-foot{margin:18px 0 0;}
+.other-calculators-all{font-size:14px;font-weight:600;color:var(--purple);text-decoration:none;}
+.other-calculators-all:hover{text-decoration:underline;}
+@media (max-width:880px){
+  .other-calculators{margin-top:36px;}
+  .other-calc-grid{grid-template-columns:1fr;}
+}
 .theme-toggle{background:var(--card);border:1.5px solid var(--line);border-radius:10px;
   width:40px;height:40px;display:flex;align-items:center;justify-content:center;
   cursor:pointer;color:var(--purple);transition:all .15s;box-shadow:var(--shadow);}
@@ -3498,6 +3997,7 @@ const CSS = `
 
 /* tabs */
 .mode-tabs{max-width:1080px;margin:26px auto 0;display:grid;grid-template-columns:1fr 1fr;gap:18px;}
+.mode-tabs-3{grid-template-columns:repeat(3,1fr);}
 .tab{text-align:left;background:var(--card);border:1px solid var(--line);
   border-radius:var(--radius);padding:16px 20px;cursor:pointer;box-shadow:var(--shadow);
   font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:17px;color:var(--ink);line-height:1.2;transition:all .15s;}
@@ -3505,6 +4005,8 @@ const CSS = `
 [data-theme='dark'] .tab:hover:not(.tab-on){border-color:var(--purple-bright);background:rgba(255,255,255,0.1);filter:none;}
 @media (max-width:880px){
   .mode-tabs{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;}
+  .mode-tabs-3 .tab{flex:1 1 calc(50% - 6px);min-width:140px;}
+  .mode-tabs-3 .tab:last-child{flex:1 1 100%;}
   .tab{flex:1;min-width:0;width:100%;padding:12px 16px;}
 }
 .tab-sub{display:block;font-family:'Inter',sans-serif;font-weight:400;
@@ -3713,7 +4215,29 @@ const CSS = `
 .test-chip-row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px;}
 .test-pill{font-size:12px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
   border:1px solid var(--line);border-radius:999px;padding:4px 12px;white-space:nowrap;}
+.test-pill-win{color:var(--win);background:var(--win-bg);border-color:var(--win);}
 [data-theme='dark'] .test-pill{color:var(--purple-deep);background:var(--purple-soft);border-color:var(--purple-bright);}
+[data-theme='dark'] .test-pill-win{color:var(--win);background:var(--win-bg);border-color:var(--win);}
+
+/* stat playground */
+.panel-hidden{display:none !important;}
+.playground{max-width:1080px;margin:0 auto;}
+.playground-intro{color:var(--muted);font-size:14.5px;line-height:1.55;margin:0 0 18px;max-width:62ch;}
+.playground-lessons{grid-template-columns:repeat(3,1fr);margin-top:0;margin-bottom:20px;}
+@media (max-width:880px){
+  .playground-lessons{display:flex;flex-wrap:nowrap;overflow-x:auto;}
+  .playground-lessons .subtab{flex:0 0 auto;min-width:max-content;}
+}
+.playground-range{display:flex;align-items:center;gap:14px;max-width:100%;}
+.playground-range-input{flex:1;min-width:0;height:6px;accent-color:var(--purple);cursor:pointer;}
+[data-theme='dark'] .playground-range-input{accent-color:var(--purple-bright);}
+.playground-range-val{min-width:72px;text-align:right;font-weight:700;font-size:15px;font-feature-settings:'tnum' 1;color:var(--purple-deep);}
+[data-theme='dark'] .playground-range-val{color:var(--purple-bright);}
+.playground-callout{margin-top:18px;padding:14px 16px;background:var(--purple-soft);border:1px solid var(--line);
+  border-radius:12px;font-size:14px;line-height:1.55;color:var(--ink);}
+[data-theme='dark'] .playground-callout{background:rgba(255,255,255,0.06);border-color:var(--line);}
+.playground-row-active{background:var(--purple-soft);}
+[data-theme='dark'] .playground-row-active{background:rgba(255,255,255,0.08);}
 .test-chip{font-size:12.5px;font-weight:600;color:var(--purple-deep);background:var(--purple-soft);
   border:1px solid var(--line);border-radius:999px;padding:5px 14px;white-space:nowrap;}
 [data-theme='dark'] .test-chip{color:var(--purple-deep);background:var(--purple-soft);border-color:var(--purple-bright);}
