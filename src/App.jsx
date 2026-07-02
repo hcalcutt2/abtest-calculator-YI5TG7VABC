@@ -254,8 +254,12 @@ function additionalDaysNeeded({ pA, pVar, nPerArm, daysRun, alphaAdj, power, two
 }
 
 // Sample size per arm (§2.2), alpha already multiplicity-adjusted
-function requiredNPerArm(p1, mdeRel, alphaAdj, power, twoSided) {
-  const p2 = p1 * (1 + mdeRel);
+function targetPropRate(p1, mdeRel, decrease = false) {
+  return decrease ? p1 * (1 - mdeRel) : p1 * (1 + mdeRel);
+}
+
+function requiredNPerArm(p1, mdeRel, alphaAdj, power, twoSided, decrease = false) {
+  const p2 = targetPropRate(p1, mdeRel, decrease);
   if (p2 >= 1 || p2 <= 0 || p1 <= 0) return Infinity;
   const za = normInv(twoSided ? 1 - alphaAdj / 2 : 1 - alphaAdj);
   const zb = normInv(power);
@@ -285,13 +289,13 @@ function detectableMdeContinuous(cv, nAvail, alphaAdj, power, twoSided) {
 }
 
 // Smallest detectable relative MDE for a given n per arm (bisection)
-function detectableMde(p1, nAvail, alphaAdj, power, twoSided) {
+function detectableMde(p1, nAvail, alphaAdj, power, twoSided, decrease = false) {
   if (nAvail < 2) return null;
   let lo = 0.0005, hi = 10;
-  if (requiredNPerArm(p1, hi, alphaAdj, power, twoSided) > nAvail) return null;
+  if (requiredNPerArm(p1, hi, alphaAdj, power, twoSided, decrease) > nAvail) return null;
   for (let i = 0; i < 80; i++) {
     const mid = (lo + hi) / 2;
-    if (requiredNPerArm(p1, mid, alphaAdj, power, twoSided) > nAvail) lo = mid;
+    if (requiredNPerArm(p1, mid, alphaAdj, power, twoSided, decrease) > nAvail) lo = mid;
     else hi = mid;
   }
   return hi;
@@ -1086,7 +1090,8 @@ function MetricSelector({ currentTab, setTab, revMetric, setRevMetric, mode }) {
 
 /* ─────────────────────── PRE_TEST mode (§2) ───────────────────── */
 
-function PreTest({ confidence, twoTailed, power, setPower }) {
+function PreTest({ confidence, twoTailed, power, setPower, goal }) {
+  const decrease = goal === "decrease";
   const [dataSource, setDataSource] = useState("manual");
   const [baseline, setBaseline] = useState("");
   const [mde, setMde] = useState("");
@@ -1110,21 +1115,23 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   React.useEffect(() => { setCalculated(false); },
-    [baseline, mde, traffic, period, power, k, alloc, confidence, twoTailed]);
+    [baseline, mde, traffic, period, power, k, alloc, confidence, twoTailed, goal]);
 
   const errors = {};
   const p1 = Number(baseline) / 100;
   const mdeRel = Number(mde) / 100;
+  const p2Target = baseline !== "" && mde !== "" && mdeRel > 0 ? targetPropRate(p1, mdeRel, decrease) : null;
   const trafficNum = Number(traffic);
   const perWeekFactor = period === "day" ? 7 : period === "month" ? 12 / 52 : 1;
   const wk = trafficNum * perWeekFactor; // visitors per week, internal
   const mdeAbs = p1 * mdeRel; // absolute (proportion) equivalent for display
-  if (baseline !== "" && !(p1 > 0 && p1 < 1)) errors.baseline = "Enter a baseline conversion rate between 0 and 100 (exclusive).";
-  else if (calculated && baseline === "") errors.baseline = "Enter a baseline conversion rate.";
+  if (baseline !== "" && !(p1 > 0 && p1 < 1)) errors.baseline = "Enter a baseline rate between 0 and 100 (exclusive).";
+  else if (calculated && baseline === "") errors.baseline = "Enter a baseline rate.";
 
-  if (mde !== "" && !(mdeRel > 0)) errors.mde = "Enter a relative uplift greater than 0.";
-  else if (baseline !== "" && mde !== "" && p1 * (1 + mdeRel) >= 1) errors.mde = "Baseline plus this uplift would exceed 100% - lower one of them.";
-  else if (calculated && mde === "") errors.mde = "Enter a relative uplift.";
+  if (mde !== "" && !(mdeRel > 0)) errors.mde = decrease ? "Enter a relative drop greater than 0." : "Enter a relative uplift greater than 0.";
+  else if (p2Target != null && p2Target <= 0) errors.mde = "Baseline minus this drop would reach 0% — use a smaller minimum detectable effect.";
+  else if (!decrease && p2Target != null && p2Target >= 1) errors.mde = "Baseline plus this uplift would exceed 100% — lower one of them.";
+  else if (calculated && mde === "") errors.mde = decrease ? "Enter a relative drop." : "Enter a relative uplift.";
 
   if (traffic !== "" && !(trafficNum > 0)) errors.traffic = "Enter a number of visitors greater than 0.";
   else if (calculated && traffic === "") errors.traffic = "Enter a number of visitors.";
@@ -1138,17 +1145,17 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
   const inputsValid = Object.keys(errors).length === 0 && allocOk;
   let result = null;
   if (calculated && inputsValid) {
-    const nPerArm = requiredNPerArm(p1, mdeRel, alphaAdj, power, twoTailed);
+    const nPerArm = requiredNPerArm(p1, mdeRel, alphaAdj, power, twoTailed, decrease);
     const minAllocFrac = Math.min(...alloc.map((a) => Number(a) / 100));
     const days = Math.ceil(nPerArm / ((wk / 7) * minAllocFrac));
     const weeks = Math.ceil(days / 7);
     const chart = [];
     for (let w = 1; w <= 12; w++) {
       const nAvail = Math.floor(wk * minAllocFrac * w);
-      const d = detectableMde(p1, nAvail, alphaAdj, power, twoTailed);
+      const d = detectableMde(p1, nAvail, alphaAdj, power, twoTailed, decrease);
       chart.push({ week: w, mde: d != null ? +(d * 100).toFixed(2) : null });
     }
-    result = { nPerArm, total: nPerArm * k, weeks, days, chart };
+    result = { nPerArm, total: nPerArm * k, weeks, days, chart, p2Target };
   }
 
   return (
@@ -1185,24 +1192,24 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
           </p>
         )}
 
-        <Field label="Baseline conversion rate (%)" htmlFor="pre-baseline" error={errors.baseline} explainerId="ztest"
-          hint="Your current conversion rate, before the test.">
-          <input id="pre-baseline" className="input" type="number" min="0" max="100" step="0.01" placeholder="e.g. 2.0"
+        <Field label="Baseline rate (%)" htmlFor="pre-baseline" error={errors.baseline} explainerId="ztest"
+          hint={decrease ? "Your current rate before the test — e.g. bounce rate." : "Your current conversion rate, before the test."}>
+          <input id="pre-baseline" className="input" type="number" min="0" max="100" step="0.01" placeholder={decrease ? "e.g. 60" : "e.g. 2.0"}
             value={baseline} onChange={(e) => setBaseline(e.target.value)} />
         </Field>
 
         <Field
-          label="Minimum detectable effect (relative uplift, %)"
+          label={decrease ? "Minimum detectable effect (relative drop, %)" : "Minimum detectable effect (relative uplift, %)"}
           htmlFor="pre-mde"
-          hint="The smallest uplift worth detecting, relative to your baseline."
+          hint={decrease ? "The smallest relative drop worth detecting, vs your baseline." : "The smallest uplift worth detecting, relative to your baseline."}
           error={errors.mde}
           explainerId="mde"
         >
           <input id="pre-mde" className="input" type="number" min="0" step="0.1" placeholder="e.g. 10"
             value={mde} onChange={(e) => setMde(e.target.value)} />
-          {!errors.mde && !errors.baseline && mdeRel > 0 && (
+          {!errors.mde && !errors.baseline && mdeRel > 0 && p2Target != null && (
             <div className="derived-line">
-              <Explainer id="mdeabs" inline label={<span>= <strong>{fmtPct(mdeAbs)}</strong> absolute ({fmtPct(p1)} → {fmtPct(p1 * (1 + mdeRel))})</span>} />
+              <Explainer id="mdeabs" inline label={<span>= <strong>{fmtPct(mdeAbs)}</strong> absolute ({fmtPct(p1)} → {fmtPct(p2Target)})</span>} />
             </div>
           )}
         </Field>
@@ -1246,6 +1253,7 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
             <div className="test-pill">{twoTailed ? "Two-tailed" : "One-tailed"}</div>
             <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
             <div className="test-pill">{Math.round(power * 100)}% power</div>
+            <div className="test-pill">{decrease ? "Decrease is a winner" : "Increase is a winner"}</div>
           </div>
         </div>
         {result && (
@@ -1256,9 +1264,10 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
                 ["Generated", new Date().toLocaleString("en-GB")],
                 [],
                 ["Inputs", ""],
-                ["Baseline conversion rate", `${baseline}%`],
-                ["Minimum detectable effect (relative)", `${mde}%`],
-                ["Absolute equivalent", `${fmtPct(mdeAbs)} (${fmtPct(p1)} -> ${fmtPct(p1*(1+mdeRel))})`],
+                ["Baseline rate", `${baseline}%`],
+                [`Minimum detectable effect (relative ${decrease ? "drop" : "uplift"})`, `${mde}%`],
+                ["Absolute equivalent", `${fmtPct(mdeAbs)} (${fmtPct(p1)} -> ${fmtPct(result.p2Target)})`],
+                ["Goal direction", decrease ? "Decrease is a winner" : "Increase is a winner"],
                 ["Visitors", `${traffic} ${period === "day" ? "per day" : period === "month" ? "per month" : "per week"}`],
                 ["Variants (incl. control)", k],
                 ["Confidence level", `${Math.round(confidence*100)}%`],
@@ -1279,8 +1288,9 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
             }}
             onPdf={() => exportPdf("Test planning", [
               { heading: "Inputs", lines: [
-                `Baseline conversion rate: ${baseline}%`,
-                `Minimum detectable effect (relative): ${mde}%  (= ${fmtPct(mdeAbs)} absolute, ${fmtPct(p1)} to ${fmtPct(p1*(1+mdeRel))})`,
+                `Baseline rate: ${baseline}%`,
+                `Minimum detectable effect (relative ${decrease ? "drop" : "uplift"}): ${mde}%  (= ${fmtPct(mdeAbs)} absolute, ${fmtPct(p1)} to ${fmtPct(result.p2Target)})`,
+                `Goal: ${decrease ? "Decrease is a winner" : "Increase is a winner"}`,
                 `Visitors: ${traffic} ${period === "day" ? "per day" : period === "month" ? "per month" : "per week"}`,
                 `Variants (incl. control): ${k}`,
                 `Confidence: ${Math.round(confidence*100)}%   Power: ${Math.round(power*100)}%   ${twoTailed ? "Two-tailed" : "One-tailed"}`,
@@ -1290,7 +1300,7 @@ function PreTest({ confidence, twoTailed, power, setPower }) {
                 `Total visitors required: ${fmtInt(result.total)}`,
                 `Estimated duration: ${result.days} ${result.days === 1 ? "day" : "days"} (${result.weeks} ${result.weeks === 1 ? "week" : "weeks"})`,
               ]},
-              { heading: "Detectable relative uplift by duration", lines:
+              { heading: `Detectable relative ${decrease ? "drop" : "uplift"} by duration`, lines:
                 result.chart.map(c => `Week ${c.week}: ${c.mde != null ? c.mde + "%" : "-"}`) },
             ])}
           />
@@ -3241,7 +3251,7 @@ export default function EclipseCalculator() {
           mode={mode}
         />
 
-        <section className="settings" aria-label="Statistical settings" key={`settings-${mode}-${postTab}`} style={{ marginTop: '24px' }}>
+        <section className="settings" aria-label="Statistical settings" key={`settings-${mode}-${mode === "pre" ? preTab : postTab}`} style={{ marginTop: '24px' }}>
           <SegControl
             legend="Confidence level"
             name="conf"
@@ -3290,6 +3300,30 @@ export default function EclipseCalculator() {
                 </div>
               )}
             </>
+          ) : mode === "pre" && preTab === "cvr" ? (
+            <>
+              <SegControl
+                legend="Tails"
+                name="tails"
+                value={tails}
+                onChange={setTails}
+                explainerId="tailed"
+                options={[
+                  { value: "two", label: "Two-tailed" },
+                  { value: "one", label: "One-tailed" },
+                ]}
+              />
+              <SegControl
+                legend="Goal direction"
+                name="pre-cvr-goal"
+                value={goal}
+                onChange={setGoal}
+                options={[
+                  { value: "increase", label: "Increase is a winner" },
+                  { value: "decrease", label: "Decrease is a winner" },
+                ]}
+              />
+            </>
           ) : (
             <SegControl
               legend="Tails"
@@ -3320,7 +3354,7 @@ export default function EclipseCalculator() {
         <div style={{ marginTop: '24px' }}>
           {mode === "pre" ? (
             preTab === "cvr" 
-              ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} />
+              ? <PreTest key="pre-cvr" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} goal={goal} />
               : <PreTestRevenue key="pre-rev" confidence={confidence} twoTailed={twoTailed} power={power} setPower={setPower} revMetric={revMetric} />
           ) : (
             postTab === "cvr"
