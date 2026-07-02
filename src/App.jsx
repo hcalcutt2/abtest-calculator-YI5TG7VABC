@@ -545,6 +545,10 @@ const EXPLAINERS = {
     label: "What does the confidence % mean?",
     body: "It's how close the result is to being statistically significant - calculated as 100% minus the p-value. A result at 95% confidence has cleared the usual significance bar. Important: this is NOT the chance the variant will win. A variant at 70% confidence hasn't 'won 70% of the time' - it just hasn't yet gathered enough evidence to be called significant. Use it as a progress reading, not a probability of success.",
   },
+  upliftci: {
+    label: "Relative uplift confidence interval",
+    body: "The range of plausible values for the true relative uplift (variant vs control). If the interval excludes 0%, the uplift is statistically significant at your chosen confidence level. Calculated via the log-ratio method.",
+  },
   aovrpv: {
     label: "Why can AOV and RPV disagree?",
     body: "AOV only counts people who ordered. A variant that persuades extra people to make small orders pushes conversion and revenue per visitor up while pulling average order value down. RPV reflects the full effect on every visitor, which is why it's usually the primary revenue metric.",
@@ -1820,7 +1824,7 @@ function MetricDetailedStats({ armStats, metricKey, metricShort, caption, result
 }
 
 function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
-  relUplift, pRaw, pAdj, corrected, ciBase, ciVar, baseCiLabel, varCiLabel,
+  relUplift, pRaw, pAdj, corrected, ciBase, ciVar, ciUpliftLo, ciUpliftHi, baseCiLabel, varCiLabel,
   confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore, goal = "increase", skewVerdict,
   sdBase, sdVar, baseSdLabel, varSdLabel }) {
   const [showDetails, setShowDetails] = useState(false);
@@ -1842,6 +1846,8 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   const confPct = Math.round(confidence * 100);
   const confValue = Number.isFinite(decisionP) ? Math.min(99.9, (1 - decisionP) * 100) : null;
   const fmtCi = ciFmt || ((lo, hi) => `${fmtPct(lo)} – ${fmtPct(hi)}`);
+  const hasUpliftCi = ciUpliftLo != null && ciUpliftHi != null
+    && Number.isFinite(ciUpliftLo) && Number.isFinite(ciUpliftHi);
 
   const who = name.split(" vs ")[0];
   const betterTxt = goal === "decrease" ? "lower" : "better";
@@ -1916,6 +1922,12 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
               <div className="v2-d-col">
                 <span className="v2-d-label">Degrees of freedom</span>
                 <span className="v2-d-val">{zScore.df.toFixed(1)}</span>
+              </div>
+            )}
+            {hasUpliftCi && (
+              <div className="v2-d-col">
+                <span className="v2-d-label"><Explainer id="upliftci" inline label={`Relative uplift (${confPct}% CI)`} /></span>
+                <span className="v2-d-val">{fmtSignedPct(ciUpliftLo)} – {fmtSignedPct(ciUpliftHi)}</span>
               </div>
             )}
             {ciBase && (
@@ -2260,6 +2272,7 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
                       relUplift={r.relUplift}
                       pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
                       ciBase={r.ciA} ciVar={r.ciB}
+                      ciUpliftLo={r.ciLo} ciUpliftHi={r.ciHi}
                       baseCiLabel="Variant A Conversion Rate" varCiLabel={`${r.name} Conversion Rate`}
                       addDays={r.addDays}
                       confidence={confidence} twoTailed={twoTailed}
@@ -3029,6 +3042,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   baseVal={fmtMoney(r.m1)} varVal={fmtMoney(r.m2)}
                   relUplift={r.relUplift} pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
                   ciBase={r.ciMeanA} ciVar={r.ciMeanB}
+                  ciUpliftLo={r.ciLo} ciUpliftHi={r.ciHi}
                   baseCiLabel="Variant A Revenue Per Visitor" varCiLabel={`${r.name} Revenue Per Visitor`}
                   sdBase={analysis.armStats[0].rpv.s} sdVar={analysis.armStats[i + 1].rpv.s}
                   baseSdLabel="Variant A RPV std dev" varSdLabel={`${r.name} RPV std dev`}
@@ -3067,6 +3081,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                   baseVal={fmtMoney(r.m1)} varVal={fmtMoney(r.m2)}
                   relUplift={r.relUplift} pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
                   ciBase={r.ciMeanA} ciVar={r.ciMeanB}
+                  ciUpliftLo={r.ciLo} ciUpliftHi={r.ciHi}
                   baseCiLabel="Variant A Average Order Value" varCiLabel={`${r.name} Average Order Value`}
                   ciFmt={(lo, hi) => `${fmtMoney(lo)} – ${fmtMoney(hi)}`}
                   confidence={confidence} twoTailed={twoTailed}
