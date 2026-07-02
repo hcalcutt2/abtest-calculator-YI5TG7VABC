@@ -336,7 +336,7 @@ function uploadSizeError(file) {
 }
 
 const DUPLICATE_FILENAME_ERR =
-  "This filename is already uploaded for another variant — upload a separate file per variant.";
+  "This filename is already uploaded for another variant. Upload a separate file per variant.";
 
 function applyDuplicateFilenameErrors(parsed, k) {
   const next = parsed.map(entry => {
@@ -388,7 +388,7 @@ function toCsv(rows) {
 
 const stamp = () => new Date().toISOString().slice(0, 10);
 
-// Load jsPDF once on demand (bundled — no CDN)
+// Load jsPDF once on demand (bundled, no CDN)
 let _jspdfPromise = null;
 function loadJsPdf() {
   if (!_jspdfPromise) {
@@ -1129,8 +1129,8 @@ function PreTest({ confidence, twoTailed, power, setPower, goal }) {
   else if (calculated && baseline === "") errors.baseline = "Enter a baseline rate.";
 
   if (mde !== "" && !(mdeRel > 0)) errors.mde = decrease ? "Enter a relative drop greater than 0." : "Enter a relative uplift greater than 0.";
-  else if (p2Target != null && p2Target <= 0) errors.mde = "Baseline minus this drop would reach 0% — use a smaller minimum detectable effect.";
-  else if (!decrease && p2Target != null && p2Target >= 1) errors.mde = "Baseline plus this uplift would exceed 100% — lower one of them.";
+  else if (p2Target != null && p2Target <= 0) errors.mde = "Baseline minus this drop would reach 0%. Use a smaller minimum detectable effect.";
+  else if (!decrease && p2Target != null && p2Target >= 1) errors.mde = "Baseline plus this uplift would exceed 100%. Lower one of them.";
   else if (calculated && mde === "") errors.mde = decrease ? "Enter a relative drop." : "Enter a relative uplift.";
 
   if (traffic !== "" && !(trafficNum > 0)) errors.traffic = "Enter a number of visitors greater than 0.";
@@ -1193,7 +1193,7 @@ function PreTest({ confidence, twoTailed, power, setPower, goal }) {
         )}
 
         <Field label="Baseline rate (%)" htmlFor="pre-baseline" error={errors.baseline} explainerId="ztest"
-          hint={decrease ? "Your current rate before the test — e.g. bounce rate." : "Your current conversion rate, before the test."}>
+          hint={decrease ? "Your current rate before the test, e.g. bounce rate." : "Your current conversion rate, before the test."}>
           <input id="pre-baseline" className="input" type="number" min="0" max="100" step="0.01" placeholder={decrease ? "e.g. 60" : "e.g. 2.0"}
             value={baseline} onChange={(e) => setBaseline(e.target.value)} />
         </Field>
@@ -2489,7 +2489,7 @@ function parseRevenueFile(text, format = "single") {
   return { values, errors };
 }
 
-// One file, one column per variant — each cell is an order revenue value for that variant.
+// One file, one column per variant: each cell is an order revenue value for that variant.
 function parseMultiVariantRevenueFile(text, k) {
   const errors = [];
   const variants = Array.from({ length: k }, () => ({ values: [], errors: [] }));
@@ -2511,11 +2511,11 @@ function parseMultiVariantRevenueFile(text, k) {
 
   const numCols = Math.max(...rows.map(row => row.length));
   if (numCols < k) {
-    errors.push(`File has ${numCols} column${numCols === 1 ? "" : "s"} but you have ${k} variants — each variant needs its own column.`);
+    errors.push(`File has ${numCols} column${numCols === 1 ? "" : "s"} but you have ${k} variants. Each variant needs its own column.`);
     return { variants, errors };
   }
   if (numCols > k) {
-    errors.push(`File has ${numCols} columns but you have ${k} variants — remove extra columns or add variants.`);
+    errors.push(`File has ${numCols} columns but you have ${k} variants. Remove extra columns or add variants.`);
     return { variants, errors };
   }
 
@@ -2748,7 +2748,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   };
 
   const formatHint = isMultiCol
-    ? `Upload one CSV with ${k} revenue columns — ${labels.map((nm, i) => `column ${i + 1} = ${nm}`).join(", ")}. Changing format or variant count clears uploaded files.`
+    ? `Upload one CSV with ${k} revenue columns (${labels.map((nm, i) => `column ${i + 1} = ${nm}`).join(", ")}). Changing format or variant count clears uploaded files.`
     : "Upload one file per variant. Changing format clears any files already uploaded.";
 
   const perVariantUploadHint = fileFormat === "two-col"
@@ -3226,6 +3226,9 @@ export default function EclipseCalculator() {
             Plan sample sizes and test duration before you start, then analyse significance,
             revenue impact, and multiple variant corrections when your test is done.
           </p>
+          <p className="intro-privacy">
+            All statistics run here in your browser. Your numbers are never uploaded or stored on a server.
+          </p>
         </div>
       </header>
 
@@ -3483,7 +3486,9 @@ const CSS = `
   line-height:1.2;letter-spacing:-0.03em;color:var(--navy);margin:0 0 10px;}
 [data-theme='dark'] .page-title{color:var(--navy);}
 .intro-text{color:var(--muted);font-size:16px;line-height:1.55;margin:0;max-width:65ch;}
+.intro-privacy{color:var(--muted);font-size:13.5px;line-height:1.5;margin:10px 0 0;max-width:65ch;opacity:0.9;}
 [data-theme='dark'] .intro-text{color:var(--muted);}
+[data-theme='dark'] .intro-privacy{color:var(--muted);}
 .theme-toggle{background:var(--card);border:1.5px solid var(--line);border-radius:10px;
   width:40px;height:40px;display:flex;align-items:center;justify-content:center;
   cursor:pointer;color:var(--purple);transition:all .15s;box-shadow:var(--shadow);}
