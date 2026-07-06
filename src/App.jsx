@@ -5,6 +5,7 @@ import {
   Tooltip as ChartTip, ResponsiveContainer,
 } from "recharts";
 import { ADVANCED_TOOLS } from "./shared/advancedTools.js";
+import { CONCEPT_TOOLS } from "./shared/conceptTools.js";
 
 /* ════════════════════════════════════════════════════════════════
    ECLIPSE · A/B/n Test Calculator
@@ -551,6 +552,22 @@ const EXPLAINERS = {
     label: "Why do extra variants need a correction?",
     body: "Every variant compared against control is another opportunity for a fluke result. With 3 variants that's 3 comparisons, so the chance of at least one false alarm rises well above your chosen level. The Holm–Bonferroni correction raises the bar for each comparison so the overall false-alarm rate stays where you set it. It's applied automatically here whenever you test more than one variant.",
   },
+  plan_alpha_adj: {
+    label: "Why is sample size higher with more variants?",
+    body: "Planning assumes you will run one significance test per variant against control. With 3 variants that is 2 comparisons, so the per-comparison significance budget is split (for example at 95% confidence, 5% overall becomes 2.5% per comparison). That makes required sample sizes larger than for a simple A/B test, so your duration estimate is honest.",
+  },
+  holm_analysis: {
+    label: "Holm–Bonferroni in your results",
+    body: "Each variant is compared to control separately. Raw p-values are ranked and adjusted so the family-wise false-positive rate stays at your confidence level. The verdict on each result card uses the adjusted p-value, not the raw one. A variant can look good on the raw p-value but not clear the bar once adjusted.",
+  },
+  winsorize_applied: {
+    label: "Outlier capping in this analysis",
+    body: "Order values above the chosen percentile are replaced with that cap before RPV and AOV are calculated and tested. This reduces the pull of one-off whale orders. Confidence intervals and p-values reflect the capped data, not the raw uploads.",
+  },
+  holm_planning: {
+    label: "Why does planning inflate sample size for multiple variants?",
+    body: "When you test more than one variant against control, each comparison is another chance for a false positive. To keep your overall confidence level honest, the significance threshold is split across comparisons (alpha divided by the number of variant-vs-control tests). That makes each comparison stricter, so you need more visitors per variant than a simple A/B test. The sample sizes shown already include this adjustment.",
+  },
   ztest: {
     label: "What is a z-test?",
     body: "The test used for comparing proportions - counts out of totals, like conversion rate. Example: 190 conversions from 10,000 visitors vs 230 from 10,000. It asks whether a gap between two rates is bigger than randomness alone would explain.",
@@ -755,6 +772,30 @@ function DetectableUpliftSection({ chart, viewMode, setViewMode }) {
         </div>
       )}
     </>
+  );
+}
+
+function LearnConceptsSection() {
+  return (
+    <section className="other-calculators learn-concepts" id="learn-concepts" aria-labelledby="learn-concepts-heading">
+      <h2 id="learn-concepts-heading" className="other-calculators-title">Learn the concepts</h2>
+      <p className="other-calculators-intro">
+        Interactive sandboxes for core ideas. Move the sliders and see how confidence, power, and sample size
+        affect false alarms and missed winners.
+      </p>
+      <div className="other-calc-grid">
+        {CONCEPT_TOOLS.map((tool) => (
+          <a key={tool.path} href={`#${tool.path}`} className="other-calc-card">
+            <span className="other-calc-tag">{tool.tag}</span>
+            <h3 className="other-calc-card-title">{tool.title}</h3>
+            <p className="other-calc-card-desc">{tool.desc}</p>
+          </a>
+        ))}
+      </div>
+      <p className="other-calculators-foot">
+        <a href="#/concepts" className="other-calculators-all">View all concept pages</a>
+      </p>
+    </section>
   );
 }
 
@@ -1035,6 +1076,109 @@ function SrmBanner({ srm }) {
       </p>
     </div>
   );
+}
+
+function CorrectionsNotice({ items }) {
+  if (!items?.length) return null;
+  return (
+    <div className="corrections-panel" role="region" aria-label="Statistical corrections applied">
+      <h3 className="corrections-title">Corrections in these results</h3>
+      <ul className="corrections-list">
+        {items.map((item) => (
+          <li key={item.id} className="correction-item">
+            <div className="correction-head">
+              <strong className="correction-name">{item.title}</strong>
+              {item.explainerId && (
+                <Explainer id={item.explainerId} inline label="Learn more" />
+              )}
+            </div>
+            <p className="correction-when"><span className="correction-when-label">When:</span> {item.when}</p>
+            <p className="correction-what">{item.what}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function planningCorrections({ k, confidence, alphaAdj, comparisons }) {
+  if (k < 3) return [];
+  const confPct = Math.round(confidence * 100);
+  const alphaPct = ((1 - confidence) * 100).toFixed(1);
+  const adjPct = (alphaAdj * 100).toFixed(2);
+  return [{
+    id: "plan-alpha",
+    title: "Multi-variant sample size adjustment",
+    when: `You are planning a test with ${k} variants (${comparisons} comparison${comparisons === 1 ? "" : "s"} vs control).`,
+    what: `Required sample size uses ${adjPct}% significance per comparison instead of ${alphaPct}% overall, so the family-wise false-positive rate stays near ${100 - confPct}% across all comparisons. Expect larger sample sizes than a simple A/B test.`,
+    explainerId: "plan_alpha_adj",
+  }];
+}
+
+function cvrAnalysisCorrections({ k, corrected, confidence, isNonInf, marginRel, srm }) {
+  const items = [];
+  const confPct = Math.round(confidence * 100);
+  if (corrected) {
+    items.push({
+      id: "holm-cvr",
+      title: "Holm–Bonferroni p-value adjustment",
+      when: `${k - 1} variant${k - 1 === 1 ? "" : "s"} compared to control (3+ variants total).`,
+      what: `Each variant's significance verdict uses the adjusted p-value. A result can fail to clear ${confPct}% confidence after correction even if the raw p-value looked promising.`,
+      explainerId: "holm_analysis",
+    });
+  }
+  if (isNonInf) {
+    items.push({
+      id: "noninf",
+      title: "Non-inferiority test (not a p-value correction)",
+      when: "You chose a non-inferiority test instead of a standard superiority test.",
+      what: `Verdicts ask whether the variant stays within a ${fmtPct(marginRel)} relative margin of control, not whether it beats control. One-sided testing at ${confPct}% confidence.`,
+      explainerId: "noninf",
+    });
+  }
+  if (srm?.flagged) {
+    items.push({
+      id: "srm-flag",
+      title: "Sample ratio mismatch flagged",
+      when: "Actual visitor counts do not match your planned traffic split (chi-square p < 0.01).",
+      what: "This is a data-quality warning, not a statistical correction. Results below may be unreliable until the split issue is investigated.",
+      explainerId: "srm",
+    });
+  }
+  return items;
+}
+
+function revenueAnalysisCorrections({ k, corrected, confidence, winsorize, outlierPct, srm }) {
+  const items = [];
+  const confPct = Math.round(confidence * 100);
+  if (corrected) {
+    items.push({
+      id: "holm-rev",
+      title: "Holm–Bonferroni p-value adjustment",
+      when: `${k - 1} variant${k - 1 === 1 ? "" : "s"} compared to control, applied separately to RPV and AOV.`,
+      what: `Each metric runs its own Holm–Bonferroni correction across variant comparisons. Verdicts use adjusted p-values at ${confPct}% confidence.`,
+      explainerId: "holm_analysis",
+    });
+  }
+  if (winsorize) {
+    items.push({
+      id: "winsorize",
+      title: "Outlier capping (Winsorization)",
+      when: "You enabled capping before analysis.",
+      what: `Orders above the ${outlierPct * 100}th percentile are replaced with that cap. RPV, AOV, and all tests use the capped values.`,
+      explainerId: "winsorize_applied",
+    });
+  }
+  if (srm?.flagged) {
+    items.push({
+      id: "srm-flag-rev",
+      title: "Sample ratio mismatch flagged",
+      when: "Actual visitor counts do not match your planned traffic split (chi-square p < 0.01).",
+      what: "This is a data-quality warning, not a statistical correction. Revenue results below may be unreliable until the split issue is investigated.",
+      explainerId: "srm",
+    });
+  }
+  return items;
 }
 
 /* ──────────── Variant-count stepper (control + variants) ──────── */
@@ -1356,6 +1500,7 @@ function PreTest({ confidence, twoTailed, power, setPower, goal }) {
         {!result && <p className="empty">Enter your test details to calculate required sample sizes and duration.</p>}
         {result && (
           <>
+            <CorrectionsNotice items={planningCorrections({ k, confidence, alphaAdj, comparisons })} />
             <div className="stat-row">
               <div className="stat">
                 <div className="stat-label">Visitors per variant</div>
@@ -1670,6 +1815,7 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
         {!result && <p className="empty">Enter your test details to calculate required sample sizes and duration.</p>}
         {result && (
           <>
+            <CorrectionsNotice items={planningCorrections({ k, confidence, alphaAdj, comparisons })} />
             <div className="stat-row">
               <div className="stat">
                 <div className="stat-label">{revMetric === 'aov' ? 'Orders' : 'Visitors'} per variant</div>
@@ -1933,6 +2079,13 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
 
       <p className="v2-meaning">{meaning}</p>
 
+      {corrected && Number.isFinite(pAdj) && (
+        <p className="correction-inline">
+          Verdict uses <Explainer id="holm_analysis" inline label="Holm–Bonferroni adjusted p-value" />{" "}
+          {fmtP(pAdj)} (raw p-value {fmtP(pRaw)}).
+        </p>
+      )}
+
       {skewVerdict && skewVerdict.level !== 'low' && (
         <div className={`skew-banner skew-${skewVerdict.level}`}>
           <span className="skew-icon">!</span>
@@ -1969,9 +2122,15 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
         <div className="v2-details">
           <div className="v2-d-row">
             <div className="v2-d-col">
-              <span className="v2-d-label"><Explainer id={corrected ? "pvalue_adj" : "pvalue"} inline label="p-value" /></span>
-              <span className="v2-d-val">{fmtP(pRaw)} {corrected && <small>(adj)</small>}</span>
+              <span className="v2-d-label"><Explainer id={corrected ? "pvalue_adj" : "pvalue"} inline label="p-value (raw)" /></span>
+              <span className="v2-d-val">{fmtP(pRaw)}</span>
             </div>
+            {corrected && Number.isFinite(pAdj) && (
+              <div className="v2-d-col">
+                <span className="v2-d-label"><Explainer id="pvalue_adj" inline label="p-value (adjusted)" /></span>
+                <span className="v2-d-val">{fmtP(pAdj)}</span>
+              </div>
+            )}
             <div className="v2-d-col">
               <span className="v2-d-label">{zScore?.label || "Z-score"}</span>
               <span className="v2-d-val">{zScore?.value != null ? zScore.value.toFixed(4) : "-"}</span>
@@ -2305,6 +2464,9 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
         {ready && (
           <>
             <SrmBanner srm={srm} />
+            <CorrectionsNotice items={cvrAnalysisCorrections({
+              k, corrected, confidence, isNonInf, marginRel, srm,
+            })} />
             {Number.isInteger(days) && days > 0 && days < 14 && (
               <p className="note">
                 This test ran fewer than 2 weeks. Behaviour varies across the week
@@ -3083,6 +3245,9 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
         {analysis && (
           <>
             <SrmBanner srm={analysis.srm} />
+            <CorrectionsNotice items={revenueAnalysisCorrections({
+              k, corrected, confidence, winsorize, outlierPct, srm: analysis.srm,
+            })} />
             {Number.isInteger(days) && days > 0 && days < 14 && (
               <p className="note">
                 This test ran fewer than 2 weeks. Behaviour varies across the week
@@ -3856,6 +4021,7 @@ export default function EclipseCalculator({ theme: themeProp, toggleTheme: toggl
         </div>
       </div>
 
+      <LearnConceptsSection />
       <OtherCalculatorsSection />
       <FaqSection />
     </div>
@@ -4506,6 +4672,23 @@ const CSS = `
 .pill{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
   background:var(--pink);color:#fff;border-radius:999px;padding:3px 10px;}
 .pill-soft{background:var(--ns-bg);color:var(--muted);}
+
+/* corrections panel */
+.corrections-panel{background:var(--purple-soft);border:1px solid var(--line);border-radius:var(--radius);
+  padding:16px 18px;margin:0 0 18px;}
+.corrections-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:15px;font-weight:700;margin:0 0 12px;color:var(--purple-deep);}
+.corrections-list{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:14px;}
+.correction-item{margin:0;padding:0 0 14px;border-bottom:1px solid var(--line);}
+.correction-item:last-child{padding-bottom:0;border-bottom:0;}
+.correction-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px;}
+.correction-name{font-size:14px;color:var(--ink);}
+.correction-when{font-size:13px;color:var(--muted);margin:0 0 4px;}
+.correction-when-label{font-weight:600;color:var(--ink);}
+.correction-what{font-size:13.5px;line-height:1.55;margin:0;color:var(--ink);}
+.correction-inline{font-size:13.5px;line-height:1.5;color:var(--purple-deep);background:var(--purple-soft);
+  border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 12px;}
+[data-theme='dark'] .corrections-panel{background:rgba(255,255,255,0.06);}
+[data-theme='dark'] .correction-inline{background:rgba(255,255,255,0.06);color:var(--purple);}
 
 /* traffic split check */
 .srm-ok{color:var(--win);font-weight:600;font-size:14px;margin:4px 0 12px;}
