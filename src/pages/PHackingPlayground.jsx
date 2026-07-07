@@ -28,28 +28,28 @@ export default function PHackingPlayground({ theme, toggleTheme }) {
       <div className="det-demo">
         <ConceptIntro
           heading="What is p-hacking?"
-          lede="P-hacking is running many checks — extra metrics, subgroups, or peeks at the data — until one looks like a win by luck alone. There was never a real lift; you just kept looking until noise looked exciting."
+          lede="P-hacking is checking conversion, then bounce, then RPV, then time on page, then every CTA click — until one metric looks like a win by luck. The variant did nothing; you just kept slicing the data until noise looked exciting."
           cards={[
             {
               tone: "type1",
-              title: "One test at 95% confidence",
-              body: "If nothing really changed, there is still about a 1-in-20 chance that single test looks like a winner.",
-              example: "That is one false alarm waiting to happen.",
+              title: "One metric at 95% confidence",
+              body: "If the variant truly changed nothing, there is still about a 1-in-20 chance that single conversion or bounce test looks significant.",
+              example: "That is one false winner waiting to ship.",
             },
             {
               tone: "type2",
-              title: "Many tests on the same data",
-              body: "Each extra look is another lottery ticket. The chance of at least one false winner grows fast even when the variant does nothing.",
-              example: "Ten looks can push the risk toward 40%, not 5%.",
+              title: "Many metrics on the same experiment",
+              body: "Each extra metric — orders, scroll depth, element clicks — is another lottery ticket. The chance of at least one false winner grows fast.",
+              example: "Ten metrics can push the risk toward 40%, not 5%.",
             },
           ]}
-          footnote="Below, every comparison is a fair coin flip in disguise — control and variant truly match. Move the slider to add more looks and watch false winners appear."
+          footnote="Below, every row is a different analytics metric on the same A/B test where control and variant truly match. Add more metrics and watch false winners appear."
         />
 
         <h2 className="det-try-heading">Try it</h2>
         <section className="det-board">
           <div className="det-slider-block">
-            <p className="det-slider-prompt">How many separate comparisons do you run on the same experiment?</p>
+            <p className="det-slider-prompt">How many separate metrics do you test on the same experiment?</p>
             <div className="det-slider-row">
               <input
                 id="phack-n"
@@ -61,11 +61,11 @@ export default function PHackingPlayground({ theme, toggleTheme }) {
                 onChange={(e) => setNumTests(Number(e.target.value))}
                 className="det-slider"
               />
-              <output className="det-slider-pct" htmlFor="phack-n">{numTests} {numTests === 1 ? "look" : "looks"}</output>
+              <output className="det-slider-pct" htmlFor="phack-n">{numTests} {numTests === 1 ? "metric" : "metrics"}</output>
             </div>
             <div className="det-slider-ends">
-              <span>1 look</span>
-              <span>20 looks</span>
+              <span>1 metric</span>
+              <span>20 metrics</span>
             </div>
           </div>
 
@@ -80,19 +80,19 @@ export default function PHackingPlayground({ theme, toggleTheme }) {
             </div>
           </div>
 
-          <div className="cv-phack-grid" role="list" aria-label="Comparison results">
+          <div className="cv-phack-grid" role="list" aria-label="Metric comparison results">
             {active.map((t) => (
               <div
                 key={t.id}
                 role="listitem"
                 className={`cv-phack-chip ${t.calledWinner ? "cv-phack-chip-winner" : ""}`}
               >
-                <span className="cv-phack-chip-id">Look {t.id + 1}</span>
+                <span className="cv-phack-chip-id">{t.metric}</span>
                 <span className="cv-phack-chip-rates">
                   {(t.rate1 * 100).toFixed(1)}% vs {(t.rate2 * 100).toFixed(1)}%
                 </span>
                 <span className="cv-phack-chip-verdict">
-                  {t.calledWinner ? "Called a winner (luck)" : "No winner"}
+                  {t.calledWinner ? "False winner (luck)" : "No winner"}
                 </span>
               </div>
             ))}
@@ -100,8 +100,8 @@ export default function PHackingPlayground({ theme, toggleTheme }) {
 
           <p className="clab-summary">
             {falseWinners.length === 0
-              ? `None of these ${numTests} looks crossed the line — but with more looks, a false winner usually shows up.`
-              : `${falseWinners.length} ${falseWinners.length === 1 ? "look" : "looks"} would have shipped a change that did nothing.`}
+              ? `None of these ${numTests} metrics crossed the line — but with more metrics checked, a false winner usually shows up.`
+              : `${falseWinners.length} ${falseWinners.length === 1 ? "metric" : "metrics"} would have shipped a change that did nothing.`}
           </p>
 
           <button type="button" className="det-resample-btn" onClick={() => setSeed((s) => s + 1)}>

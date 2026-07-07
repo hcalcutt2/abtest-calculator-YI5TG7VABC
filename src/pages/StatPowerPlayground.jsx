@@ -58,22 +58,22 @@ export default function StatPowerPlayground({ theme, toggleTheme }) {
       <div className="det-demo">
         <ConceptIntro
           heading="What is statistical power?"
-          lede="Power answers: if the variant really is better, how often will your test say so? Low power means real winners slip through as “no result”. It is the partner idea to a missed detection (Type II error)."
+          lede="Power answers: if the variant really lifts conversion, RPV, or engagement, how often will your test notice it? Low power means real winners sit in “no result” while you wait for more traffic."
           cards={[
             {
               tone: "ok",
               title: "High power",
-              body: "Enough visitors and a clear lift → the test usually catches the winner.",
-              example: "You ship good changes instead of abandoning them.",
+              body: "Enough visitors and a clear lift on conversion or revenue → the test usually catches the winner.",
+              example: "You ship a checkout change that truly helps instead of abandoning it.",
             },
             {
               tone: "type2",
               title: "Low power",
-              body: "Too few visitors or a tiny lift → the test often says “no winner” even when the variant helps.",
-              example: "That is a miss (Type II error).",
+              body: "Too few sessions or a tiny bounce/RPV lift → the test often says “inconclusive” even when the variant helps.",
+              example: "That is a missed winner (Type II error).",
             },
           ]}
-          footnote="Purple dots are real lifts (25 of 100). Move the sliders — the same dots stay put; only whether the test calls them changes."
+          footnote="Purple dots are real lifts on 25 of 100 metrics (conversion, clicks, time on page, etc.). Move the sliders — the same dots stay put; only whether the test calls them changes."
         />
 
         <h2 className="det-try-heading">Try it</h2>

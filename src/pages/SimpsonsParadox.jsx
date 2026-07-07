@@ -30,7 +30,7 @@ export default function SimpsonsParadox({ theme, toggleTheme }) {
       theme={theme}
       toggleTheme={toggleTheme}
       title="Simpson's paradox"
-      subtitle="A variant can look worse overall while winning in every group — or the reverse — because group sizes differ."
+      subtitle="The headline conversion rate can disagree with mobile and desktop — because traffic mix matters."
       breadcrumbs={
         <>
           <a href="#/">Main calculator</a> / <a href="#/concepts">Learn the concepts</a> / Simpson&apos;s paradox
@@ -40,18 +40,18 @@ export default function SimpsonsParadox({ theme, toggleTheme }) {
       <div className="det-demo">
         <ConceptIntro
           heading="What is Simpson's paradox?"
-          lede="When you combine groups, the overall winner can flip from what you see inside each group. It is not magic — it is mix: one group can dominate the total while the other group had the better variant."
+          lede="You split results by device and control wins on both mobile and desktop conversion — but pool everyone together and the headline flips. It is not magic: desktop carries most traffic, so its numbers dominate the total."
           cards={[
             {
-              title: "Split view",
-              body: "Compare control and variant separately for mobile visitors and desktop visitors.",
+              title: "Split by device",
+              body: "Compare control vs variant conversion separately for mobile sessions and desktop sessions.",
             },
             {
-              title: "Combined view",
-              body: "Pool everyone together into one headline number — that headline can point the opposite way.",
+              title: "Headline (pooled) rate",
+              body: "Merge all visitors into one conversion rate — that single number can point the opposite way from both splits.",
             },
           ]}
-          footnote="Toggle the view below. Control wins on both devices, but variant wins the combined total because most traffic sits where variant had more room to grow."
+          footnote="Toggle the view below. Control wins both device segments, but variant wins combined because most sessions are desktop, where variant had more room to grow."
         />
 
         <h2 className="det-try-heading">Try it</h2>

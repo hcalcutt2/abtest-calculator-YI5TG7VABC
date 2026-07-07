@@ -2335,9 +2335,15 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="cvr-h">
-        <p className="field-hint">Raw counts only - conversion rates are calculated for you.</p>
-
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="cvr-k" />
+
+        <Field label="Planned traffic split" htmlFor={undefined} explainerId="srm"
+          hint="Defaults to an equal split - change it if your experiment used an unequal split (e.g. 30/70).">
+          <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="cvr" />
+        </Field>
+
+        <h3 className="block-title">Visitors & conversions per variant</h3>
+        <p className="field-hint">Raw counts only - conversion rates are calculated for you.</p>
 
         {rows.map((r, i) => {
           const v = Number(r.visitors), c = Number(r.conversions);
@@ -2368,11 +2374,6 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
             </div>
           );
         })}
-
-        <Field label="Planned traffic split (for the traffic split check)" htmlFor={undefined} explainerId="srm"
-          hint="Defaults to an equal split - change it if your experiment was set up with an unequal split.">
-          <AllocationEditor alloc={alloc} setAlloc={setAlloc} labels={labels} idPrefix="cvr" />
-        </Field>
 
         <Field label="Test duration in days (optional)" htmlFor="cvr-days">
           <input id="cvr-days" className="input" type="number" min="1" step="1"

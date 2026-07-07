@@ -32,6 +32,39 @@ export function propTestP(c1, n1, c2, n2) {
 
 const MAX_P_TESTS = 30;
 
+const PHACK_METRICS = [
+  "Conversion rate",
+  "Bounce rate",
+  "Revenue per visitor",
+  "Average order value",
+  "Time on page",
+  "Add-to-cart rate",
+  "CTA click rate",
+  "Pages per session",
+  "Scroll depth (75%)",
+  "Newsletter sign-up rate",
+  "Exit rate",
+  "Product page views",
+  "Search usage rate",
+  "Video play rate",
+  "Form start rate",
+  "Checkout start rate",
+  "Mobile share",
+  "Returning visitor rate",
+  "Cart abandonment rate",
+  "Promo code usage",
+  "Filter interaction rate",
+  "Wishlist adds",
+  "Live chat opens",
+  "Error page rate",
+  "Site search CTR",
+  "Hero banner clicks",
+  "Menu expand rate",
+  "Sticky nav clicks",
+  "Footer link clicks",
+  "Social share clicks",
+];
+
 /** Fixed pool of null A/B tests; first `numTests` are the ones you "ran" */
 export function generateNullTests(seed, nPerArm = 800) {
   const rng = mulberry32(seed);
@@ -42,6 +75,7 @@ export function generateNullTests(seed, nPerArm = 800) {
     const p = propTestP(c1, nPerArm, c2, nPerArm);
     return {
       id,
+      metric: PHACK_METRICS[id % PHACK_METRICS.length],
       c1,
       c2,
       n: nPerArm,

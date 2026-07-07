@@ -58,18 +58,18 @@ export default function LawOfLargeNumbers({ theme, toggleTheme }) {
       <div className="det-demo">
         <ConceptIntro
           heading="What is the law of large numbers?"
-          lede="Flip a biased coin or measure conversion on a page — the first few tries can look wildly high or low. Keep collecting observations and the average settles near the true rate."
+          lede="Watch a live conversion-rate line wobble with each new visitor — then settle on the true rate. The same idea applies to bounce rate, click-through, and any proportion metric: small samples lie; big samples tell the truth."
           cards={[
             {
               title: "Small sample",
-              body: "With 20 visitors you might see 0% or 15% even when the true rate is 10%. Noise looks like a trend.",
+              body: "With 50 visitors you might see 4% or 14% conversion even when the true rate is 10%. Daily bounce can look broken on a quiet Tuesday.",
             },
             {
               title: "Large sample",
-              body: "With thousands of visitors the running rate hugs the true line. That is why A/B tests need enough traffic.",
+              body: "With thousands of sessions the running rate hugs the true line. That is why you wait for enough traffic before calling an A/B winner.",
             },
           ]}
-          footnote="The sequence below is fixed — only how many visitors you include changes. Slide to add more and watch the line calm down."
+          footnote="The sequence below is fixed — only how many visitors you include changes. Slide right to mimic letting a test run longer."
         />
 
         <h2 className="det-try-heading">Try it</h2>

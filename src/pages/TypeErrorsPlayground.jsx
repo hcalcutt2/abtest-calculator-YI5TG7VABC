@@ -14,63 +14,67 @@ function DetectorIntro() {
     <section className="det-intro" aria-labelledby="det-intro-heading">
       <h2 id="det-intro-heading" className="det-intro-heading">What are Type I and Type II errors?</h2>
       <p className="det-intro-lede">
-        Any time something has to decide yes or no — a rain forecast, a spam filter, an A/B test — it can get
-        the answer wrong in two different ways.
+        Any time analytics forces a yes/no call — ship an A/B winner, flag high bounce, report an engagement
+        drop — you can get the answer wrong in two different ways.
       </p>
       <div className="det-intro-cards">
         <div className="det-intro-card det-intro-card-type1">
           <h3 className="det-intro-card-title">Type I error — false alarm</h3>
           <p className="det-intro-card-text">
-            The detector said <strong>yes</strong>, but the true answer was <strong>no</strong>.
-            You acted on something that was not really there.
+            You said <strong>yes</strong> (ship, alert, report a problem), but nothing real was there.
+            You acted on noise.
           </p>
-          <p className="det-intro-card-example">Example: forecast warns of rain, but the day stays dry.</p>
+          <p className="det-intro-card-example">Example: you ship a “winning” variant, but conversion was flat.</p>
         </div>
         <div className="det-intro-card det-intro-card-type2">
           <h3 className="det-intro-card-title">Type II error — miss</h3>
           <p className="det-intro-card-text">
-            The detector said <strong>no</strong>, but the true answer was <strong>yes</strong>.
-            Something real happened and you missed it.
+            You said <strong>no</strong> (hold, stay quiet), but a real lift or issue was there.
+            You missed something that mattered.
           </p>
-          <p className="det-intro-card-example">Example: it rains, but the forecast said dry.</p>
+          <p className="det-intro-card-example">Example: bounce really spiked, but your alert threshold was too strict.</p>
         </div>
       </div>
       <p className="det-intro-tradeoff">
-        You cannot make both mistakes rare at the same time. If you require more certainty before saying yes,
-        false alarms drop but misses rise — and the other way around. Move the slider below on the same 100
-        items to see that trade-off.
+        You cannot make both mistakes rare at once. Require more certainty before shipping or alerting and
+        false alarms drop — but real winners and real problems slip through. Move the slider on the same
+        100 checks to see that trade-off.
       </p>
     </section>
   );
 }
 
 function ItemIcon({ type }) {
-  if (type === "cloud") {
+  if (type === "chart") {
     return (
       <svg className="det-icon" viewBox="0 0 16 16" aria-hidden="true">
-        <path
-          d="M4.5 11.5h7a2.5 2.5 0 0 0 .4-5 3.5 3.5 0 0 0-6.8-1.1A2.5 2.5 0 0 0 4.5 11.5z"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.1"
-          strokeLinejoin="round"
-        />
+        <rect x="2.5" y="9" width="2.5" height="4.5" rx=".4" fill="currentColor" opacity="0.45" />
+        <rect x="6.75" y="6" width="2.5" height="7.5" rx=".4" fill="currentColor" opacity="0.7" />
+        <rect x="11" y="3.5" width="2.5" height="10" rx=".4" fill="currentColor" />
       </svg>
     );
   }
-  if (type === "plant") {
+  if (type === "bounce") {
     return (
       <svg className="det-icon" viewBox="0 0 16 16" aria-hidden="true">
-        <path d="M8 13V8M6 8c0-2 1-3.5 2-3.5S10 6 10 8" stroke="currentColor" strokeWidth="1.1" fill="none" />
-        <path d="M6.5 9.5c-1-.5-1.5-1.5-1.5-2.5M9.5 9.5c1-.5 1.5-1.5 1.5-2.5" stroke="currentColor" strokeWidth="1" fill="none" />
-        <rect x="6" y="12" width="4" height="1.5" rx=".5" fill="currentColor" opacity="0.55" />
+        <rect x="3" y="3" width="7" height="9" rx=".8" fill="none" stroke="currentColor" strokeWidth="1.1" />
+        <path d="M11 8h2.5M12.25 8L10.5 6.25M12.25 8L10.5 9.75" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (type === "engage") {
+    return (
+      <svg className="det-icon" viewBox="0 0 16 16" aria-hidden="true">
+        <circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" strokeWidth="1.1" />
+        <path d="M8 5v3.5l2 1.2" fill="none" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
       </svg>
     );
   }
   return (
     <svg className="det-icon" viewBox="0 0 16 16" aria-hidden="true">
-      <rect x="2.5" y="4" width="11" height="8" rx="1" fill="none" stroke="currentColor" strokeWidth="1.1" />
-      <path d="M2.5 5.5 8 9l5.5-3.5" fill="none" stroke="currentColor" strokeWidth="1" />
+      <rect x="2.5" y="9" width="2.5" height="4.5" rx=".4" fill="currentColor" opacity="0.45" />
+      <rect x="6.75" y="6" width="2.5" height="7.5" rx=".4" fill="currentColor" opacity="0.7" />
+      <rect x="11" y="3.5" width="2.5" height="10" rx=".4" fill="currentColor" />
     </svg>
   );
 }
@@ -168,7 +172,7 @@ function ScreenReaderSummary({ scenario, counts, surePct, cutoff }) {
 }
 
 export default function TypeErrorsPlayground({ theme, toggleTheme }) {
-  const [scenarioId, setScenarioId] = useState("rain");
+  const [scenarioId, setScenarioId] = useState("winner");
   const [seed, setSeed] = useState(42);
   const [surePct, setSurePct] = useState(50);
   const [hoverOutcome, setHoverOutcome] = useState(null);
@@ -268,9 +272,10 @@ export default function TypeErrorsPlayground({ theme, toggleTheme }) {
               Shuffle new 100 {scenario.itemNoun}s
             </button>
             <p className="det-bridge-note">
-              In formal statistics, Type I is a false alarm and Type II is a miss. The trade-off: if you
-              require more certainty before saying yes, false alarms fall but misses rise — and the other
-              way around. Only 20 of 100 are truly yes here, so false alarms can pile up when the bar is low.
+              In formal statistics, Type I is a false alarm and Type II is a miss. In analytics: a false winner
+              shipped, a bounce spike ignored, an engagement drop missed. Require more certainty before acting
+              and false alarms fall — but real lifts and real problems get through. Only 20 of 100 are truly
+              “yes” here, so false alarms pile up when the bar is low.
             </p>
           </div>
         </section>
