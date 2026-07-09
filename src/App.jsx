@@ -1215,10 +1215,10 @@ function PlanningDataSource({ value, onChange }) {
       </button>
       <button type="button" className={`choice-opt ${value === 'historical' ? 'choice-opt-on' : ''}`}
         onClick={() => onChange('historical')}>
-        <div className="choice-title">
+        <span className="choice-title">
           Historical data
           <span className="badge-soon">Coming Soon</span>
-        </div>
+        </span>
         <span className="choice-desc">Import data to auto-fill baseline and seasonal trends.</span>
       </button>
     </div>
@@ -4310,6 +4310,7 @@ const CSS = `
 .badge-soon{display:block;width:fit-content;background:var(--purple-soft);color:var(--purple);
   font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-top:4px;
   text-transform:uppercase;letter-spacing:0.02em;}
+.choice-title .badge-soon{display:inline-block;margin-top:0;margin-left:6px;vertical-align:middle;}
 [data-theme='dark'] .badge-soon{background:var(--purple-soft);color:var(--purple-bright);border:1px solid var(--purple-bright);}
 .animated-fade-in{animation:fadeIn .3s ease-out;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
