@@ -5,18 +5,18 @@ import { ADVANCED_TOOLS } from "../shared/advancedTools.js";
 export default function AdvancedHub({ theme, toggleTheme }) {
   return (
     <PageShell
-      title="Advanced calculators"
-      subtitle="Standalone tools for specialised A/B testing scenarios. Each calculator explains when to use it, what it assumes, and where it can mislead you."
+      title="Advanced A/B testing calculators"
+      subtitle="Bayesian A/B testing, sequential sampling, false discovery rate control, and specialised tests — for when the main statistical significance and sample size calculators are not enough."
       theme={theme}
       toggleTheme={toggleTheme}
       breadcrumbs={<><a href="#/">Main calculator</a> / Advanced tools</>}
     >
       <ScenarioBox title="When to use these instead of the main calculator">
         <p>
-          The main Eclipse calculator covers standard conversion-rate and revenue tests with fixed sample sizes
-          and frequentist significance. Use the tools below when your question does not fit that mould:
-          you need interim stopping rules, count data with exposure, time-to-event outcomes, many simultaneous
-          comparisons, or a probability-based readout.
+          The main Eclipse calculator covers standard conversion-rate and revenue tests with fixed sample sizes,
+          z-tests, t-tests, and frequentist significance. Use the tools below when your question does not fit that mould:
+          you need sequential sampling with interim stopping rules, count data with exposure, time-to-event outcomes,
+          false discovery rate control across many comparisons, or Bayesian A/B testing with a probability-of-winning readout.
         </p>
         <p>
           These are educational and planning aids. They are not a substitute for a pre-registered analysis plan

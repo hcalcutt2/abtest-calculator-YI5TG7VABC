@@ -2,8 +2,21 @@
   "@context": "https://schema.org",
   "@type": "WebApplication",
   "name": "Eclipse A/B Test Calculator",
+  "alternateName": ["A/B testing calculator", "Statistical significance calculator", "Sample size calculator"],
   "applicationCategory": "BusinessApplication",
   "operatingSystem": "Web browser",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "GBP" },
-  "description": "Free A/B test calculator for significance, sample size, duration and revenue analysis with multiple variants and plain-English results."
+  "description": "Free A/B test calculator for sample size, statistical significance, conversion rate, p-value, z-score, statistical power, MDE, confidence level, and confidence intervals — plus Bayesian A/B testing and sequential sampling tools.",
+  "featureList": [
+    "Sample size calculator",
+    "Statistical significance calculator",
+    "Conversion rate A/B testing",
+    "Confidence level and confidence interval",
+    "Statistical power and MDE planning",
+    "p-value and z-score analysis",
+    "Bayesian A/B testing",
+    "Sequential sampling",
+    "False discovery rate control",
+    "Chi-squared and t-test analysis"
+  ]
 }

@@ -1,0 +1,26 @@
+name: Calculator feedback
+description: Feedback on the A/B Test Calculator (beta)
+title: "[Feedback] "
+labels:
+  - feedback
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying the calculator. Your test data stays in your browser — this form is only for product feedback, bugs, and ideas.
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: Where you were in the app (filled automatically when possible).
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Your feedback
+      description: What worked, what confused you, what's missing, or steps to reproduce a bug.
+      placeholder: Tell us what you were trying to do and what happened…
+    validations:
+      required: true

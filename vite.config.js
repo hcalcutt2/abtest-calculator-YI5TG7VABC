@@ -31,4 +31,7 @@ function productionCspPlugin() {
 export default defineConfig({
   plugins: [react(), productionCspPlugin()],
   base: '/abtest-calculator-YI5TG7VABC/',
+  server: {
+    host: '127.0.0.1',
+  },
 })

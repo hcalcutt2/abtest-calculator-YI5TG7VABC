@@ -54,7 +54,7 @@ export default function SequentialTestingPage({ theme, toggleTheme }) {
   return (
     <PageShell
       title="Sequential testing calculator"
-      subtitle="Plan interim looks and approximate efficacy boundaries. Use when you may stop a test early for a clear win or loss."
+      subtitle="Plan interim looks for sequential sampling — stop early with efficacy boundaries without inflating Type I error on the null hypothesis."
       theme={theme}
       toggleTheme={toggleTheme}
       breadcrumbs={<> <a href="#/">Main calculator</a> / <a href="#/advanced">Advanced tools</a> / Sequential testing</>}

@@ -7,8 +7,8 @@ export default function ConceptsHub({ theme, toggleTheme }) {
     <ConceptLabLayout
       theme={theme}
       toggleTheme={toggleTheme}
-      title="Learn the concepts"
-      subtitle="Interactive visual explainers — not calculators. Play with the graphics and build intuition for how testing actually works."
+      title="Learn A/B testing concepts"
+      subtitle="Interactive guides on statistical power, Type I and Type II errors, p-values, null hypothesis, MDE, and distributions — build intuition beyond the main sample size and significance calculators."
       breadcrumbs={<><a href="#/">Main calculator</a> / Learn the concepts</>}
     >
       <div className="clab-hub-grid">

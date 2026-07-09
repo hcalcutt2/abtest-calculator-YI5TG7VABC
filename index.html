@@ -6,15 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Primary -->
-    <title>A/B Test Calculator | Significance, Sample Size &amp; Revenue | Eclipse</title>
-    <meta name="description" content="Free A/B test calculator for significance, sample size and test duration. Handles multiple variants and revenue per visitor, shows confidence intervals, and explains every result in plain English. Runs in your browser — no signup.">
-    <meta name="robots" content="noindex, nofollow">
+    <title>A/B Test Calculator | Sample Size &amp; Statistical Significance | Eclipse</title>
+    <meta name="description" content="Free A/B test calculator with sample size calculator, statistical significance testing, conversion rate, p-value, z-score, statistical power, MDE, confidence level, and confidence intervals. Bayesian and sequential tools included.">
+    <meta name="robots" content="index, follow">
 
     <!-- Open Graph -->
     <meta property="og:type" content="website">
     <meta property="og:site_name" content="Eclipse">
-    <meta property="og:title" content="A/B Test Calculator — Significance, Sample Size &amp; Revenue">
-    <meta property="og:description" content="Plan and analyse A/B/n tests in one place. Multiple variants, revenue and conversion metrics, confidence intervals, and plain-English results. Free, in-browser, no signup.">
+    <meta property="og:title" content="A/B Test Calculator — Sample Size &amp; Statistical Significance">
+    <meta property="og:description" content="Free A/B testing calculator with sample size calculator, statistical significance testing, conversion rate analysis, confidence level, and confidence intervals. Multiple variants and revenue metrics.">
     <meta property="og:url" content="https://abtestcalculator.com">
     <meta property="og:image" content="https://abtestcalculator.com/og-image.png">
     <meta property="og:image:width" content="1200">
@@ -23,8 +23,8 @@
 
     <!-- Twitter/X -->
     <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="A/B Test Calculator | Eclipse">
-    <meta name="twitter:description" content="Significance, sample size and revenue analysis for A/B/n tests. Confidence intervals, multiple variants, plain-English results. Free and in-browser.">
+    <meta name="twitter:title" content="A/B Test Calculator | Sample Size &amp; Significance">
+    <meta name="twitter:description" content="A/B testing calculator for sample size, statistical significance, conversion rate, confidence level, and confidence intervals. Free and in-browser.">
     <meta name="twitter:image" content="https://abtestcalculator.com/og-image.png">
 
     <meta name="theme-color" content="#1C1328">
@@ -36,69 +36,65 @@
     <div id="root">
       <div class="app-static-content" style="display:none">
         <h1>A/B Test Calculator</h1>
-        <p>Plan and analyse A/B tests with precision. This tool helps you calculate required sample sizes and test duration before you start, and determines statistical significance, revenue impact, and multiple variant corrections once your test is complete.</p>
+        <p>Plan sample sizes and test duration before you start, then analyse statistical significance for conversion rate, revenue, confidence levels, and confidence intervals.</p>
         
         <section>
-          <h2>Frequently Asked Questions</h2>
+          <h2>A/B test calculator FAQ</h2>
           <div>
-            <h3>What is an A/B test?</h3>
-            <p>An A/B test splits traffic between a control (what you have now) and one or more variants (a change you want to try). By measuring conversion rate, revenue per visitor or other metrics on each group, you can see whether a change made a real difference or the gap was just random noise.</p>
+            <h3>What is an A/B test calculator?</h3>
+            <p>It helps you plan and analyse experiments without spreadsheets. Eclipse covers sample size planning, statistical significance testing, conversion rate analysis, and revenue metrics, with confidence levels, confidence intervals, and p-values explained in plain English.</p>
           </div>
           <div>
-            <h3>How do I know if my A/B test result is statistically significant?</h3>
-            <p>A result is statistically significant when the difference between variants is unlikely to have happened by chance alone. Enter your visitor and conversion counts — or upload revenue data — and the calculator runs the appropriate statistical test. It then tells you in plain English whether the result clears your chosen confidence level (90%, 95% or 99%) and shows the p-value and confidence interval behind that call.</p>
+            <h3>How does this A/B testing calculator work?</h3>
+            <p>Use Plan a test to estimate sample size and test duration from your baseline conversion rate, MDE, traffic, confidence level, and statistical power. When your test finishes, open Analyse results to check significance. Paste control and variant counts or upload revenue data to see p-values, uplift, and confidence intervals.</p>
           </div>
           <div>
-            <h3>What is a p-value in A/B testing?</h3>
-            <p>The p-value answers: if there were truly no difference between control and variant, how often would you see a gap at least this large just from randomness? A smaller p-value means the result is harder to dismiss as luck. If the p-value is below your significance threshold (for example 0.05 at 95% confidence), the result is called statistically significant.</p>
+            <h3>Is my A/B test statistically significant?</h3>
+            <p>Enter visitors and conversions for your control group and each variant, or upload revenue data. The tool runs the right test (a z-test for conversion rate or Welch's t-test for revenue) and compares the p-value to your confidence level. You get a plain-English verdict and a confidence interval for the uplift.</p>
           </div>
           <div>
-            <h3>How many visitors do I need for an A/B test?</h3>
-            <p>Sample size depends on your baseline conversion rate, the smallest uplift you care about (minimum detectable effect), your chosen confidence level, statistical power, and how many variants you are testing. Use the planning tab: enter your baseline rate, target uplift and traffic, and the calculator returns visitors needed per variant plus an estimated duration in days and weeks.</p>
+            <h3>What sample size do I need for A/B testing?</h3>
+            <p>It depends on baseline conversion rate, minimum detectable effect, confidence level, statistical power, and how many variants you run. Plan a test returns visitors needed per variant, total traffic, and estimated weeks to reach that sample at your current volume.</p>
+          </div>
+          <div>
+            <h3>How long should an A/B test run?</h3>
+            <p>Run until you hit the sample size your plan requires. Stopping early inflates false positives. Ideally cover one to two full business weeks so weekday and weekend patterns are both represented. Plan a test estimates duration from your traffic.</p>
+          </div>
+          <div>
+            <h3>What confidence level should I use in A/B testing?</h3>
+            <p>Confidence level is how sure you want to be before calling a winner. 95% is the usual default (about a 1-in-20 false-positive risk). This calculator supports 90%, 95%, and 99%. Higher confidence needs more traffic but reduces false alarms.</p>
+          </div>
+          <div>
+            <h3>What is a confidence interval in A/B testing?</h3>
+            <p>A confidence interval is the range where the true uplift likely falls at your chosen confidence level. If the uplift interval excludes zero, the result is statistically significant. The interval also shows how large the effect might be, not just whether it cleared the bar.</p>
           </div>
           <div>
             <h3>What is statistical power in A/B testing?</h3>
-            <p>Statistical power is the probability your test will detect a real improvement if one exists. At 80% power — the usual default — there is roughly a one-in-five chance of missing a genuine winner. Higher power (90%) needs more traffic but reduces that risk. Set power alongside confidence when planning a test so you are not under-powered before you start.</p>
+            <p>Statistical power is the probability your test detects a real lift when one exists. At 80% power (the default here) there is roughly a one-in-five chance of missing a genuine winner. Set power alongside confidence level in Plan a test before you start.</p>
           </div>
           <div>
             <h3>What is the minimum detectable effect (MDE)?</h3>
-            <p>The minimum detectable effect is the smallest relative uplift you want the test to be able to spot — for example, a 10% lift on a 2.00% baseline means detecting a move from 2.00% to 2.20%. Smaller MDEs need much larger sample sizes. Pick an MDE based on the smallest change that would actually change your decision, not the smallest change you can imagine.</p>
+            <p>The MDE is the smallest relative uplift you want the test to reliably spot. For example, 10% on a 2% baseline means detecting a move from 2.00% to 2.20%. Smaller MDEs need much larger samples. Pick an MDE based on the smallest change that would actually change your decision.</p>
           </div>
           <div>
-            <h3>Should I use a one-tailed or two-tailed test?</h3>
-            <p>A two-tailed test asks whether the variant is different — better or worse. A one-tailed test asks only whether it is better. Use one-tailed only when a decrease would be treated exactly the same as no change. If a drop would worry you, use two-tailed. Two-tailed is the default here and is the safer choice for most business decisions.</p>
+            <h3>What is a p-value in A/B testing?</h3>
+            <p>The p-value answers: if there were truly no difference between control and variant, how often would you see a gap at least this large just from randomness? If p-value is below your significance threshold (e.g. 0.05 at 95% confidence), the result is statistically significant.</p>
           </div>
           <div>
-            <h3>Can I test more than two variants (A/B/C/n)?</h3>
-            <p>Yes. You can compare three or more variants against a control at once. Each variant gets its own comparison, and Holm–Bonferroni correction is applied automatically so your overall false-positive rate stays at the confidence level you set. You can also set unequal traffic splits between variants.</p>
+            <h3>One-sided vs two-sided test: which should I use?</h3>
+            <p>A two-sided test asks whether the variant is different, better or worse. A one-sided test asks only whether it is better. Use one-sided only when a decrease in conversion rate would be treated exactly the same as no change. Two-sided is the default here.</p>
           </div>
           <div>
-            <h3>Why do multiple variants need a correction?</h3>
-            <p>Every extra variant compared against control is another chance for a fluke result. With three variants that is three separate comparisons, so the chance of at least one false alarm rises above your chosen confidence level. Holm–Bonferroni correction adjusts the p-value for each comparison so the family-wise error rate stays controlled. It is applied automatically whenever you analyse more than one variant.</p>
+            <h3>Can this A/B testing calculator handle more than two variants?</h3>
+            <p>Yes. Compare three or more variants against control at once. Holm-Bonferroni correction is applied automatically so your overall false-positive rate stays near your confidence level. You can also set unequal traffic splits.</p>
           </div>
           <div>
             <h3>Can I measure revenue, not just conversion rate?</h3>
-            <p>Yes. Paste or upload order-level revenue data and the calculator measures revenue per visitor (RPV) and average order value (AOV). Revenue is analysed with Welch's t-test, which handles unequal variance between groups — the standard approach for skewed revenue data. You can also cap outliers at the 90th, 95th or 99th percentile before analysis.</p>
-          </div>
-          <div>
-            <h3>What is the difference between conversion rate, RPV and AOV?</h3>
-            <p>Conversion rate (CVR) is conversions divided by visitors. Revenue per visitor (RPV) is total revenue divided by all visitors, including non-buyers — usually the primary revenue metric because it reflects the full funnel. Average order value (AOV) is total revenue divided by orders only, so it ignores visitors who did not order. A variant can raise RPV while lowering AOV if it brings in more small orders.</p>
-          </div>
-          <div>
-            <h3>What are confidence intervals in A/B test results?</h3>
-            <p>A confidence interval shows the range of plausible values for the true difference between variants. For conversion rate, you will see intervals for each variant's rate and for the uplift between them. If the interval for uplift excludes zero, the result is significant at that confidence level. Intervals make the size of the effect visible, not just whether it cleared the bar.</p>
-          </div>
-          <div>
-            <h3>How long should I run an A/B test?</h3>
-            <p>Run until you reach the sample size your plan requires — stopping early inflates false positives. Ideally include at least one to two full business weeks so weekday and weekend patterns are both represented. The planning calculator estimates duration from your traffic volume; the analysis tab can also check whether you ran long enough relative to your original plan.</p>
-          </div>
-          <div>
-            <h3>What is a non-inferiority test?</h3>
-            <p>A standard test asks whether a variant is better than control. A non-inferiority test asks whether you can be confident the variant is not meaningfully worse — useful when you want to ship a change for other reasons (simpler design, lower cost) and only need to confirm it does not hurt conversion beyond a margin you set. Enable it in the conversion-rate analysis tab and define your acceptable margin.</p>
+            <p>Yes. Upload order-level revenue data to measure revenue per visitor (RPV) and average order value (AOV). Revenue is analysed with Welch's t-test for skewed data. You can cap outliers at the 90th, 95th, or 99th percentile before analysis.</p>
           </div>
           <div>
             <h3>What is a sample ratio mismatch (SRM)?</h3>
-            <p>A sample ratio mismatch happens when actual traffic splits do not match the planned allocation — for example, you intended 50/50 but received 48/52 on large volumes. It often points to a tracking or redirect bug and can mean the groups are not comparable. The calculator runs a chi-square check against your planned split and flags a mismatch when the gap is too large to be random.</p>
+            <p>A sample ratio mismatch happens when actual traffic splits do not match the planned allocation, often pointing to a tracking or redirect bug. Eclipse flags mismatches in results so you can check your implementation before acting on the numbers.</p>
           </div>
         </section>
       </div>

@@ -48,7 +48,7 @@ export default function StatPowerPlayground({ theme, toggleTheme }) {
       theme={theme}
       toggleTheme={toggleTheme}
       title="Statistical power"
-      subtitle="When a lift is real, power is the chance your test actually notices it."
+      subtitle="Statistical power, minimum detectable effect (MDE), and sample size — the chance your test spots a real conversion rate or revenue lift before test duration runs out."
       breadcrumbs={
         <>
           <a href="#/">Main calculator</a> / <a href="#/concepts">Learn the concepts</a> / Statistical power

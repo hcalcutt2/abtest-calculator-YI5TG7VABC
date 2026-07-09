@@ -27,7 +27,7 @@ export default function FdrControlPage({ theme, toggleTheme }) {
   return (
     <PageShell
       title="FDR / TDR calculator"
-      subtitle="Control the false discovery rate when testing many hypotheses at once."
+      subtitle="Control false discovery rate (FDR) when testing many metrics or variants — and estimate true discovery rate (TDR)."
       theme={theme}
       toggleTheme={toggleTheme}
       breadcrumbs={<> <a href="#/">Main calculator</a> / <a href="#/advanced">Advanced tools</a> / FDR &amp; TDR</>}

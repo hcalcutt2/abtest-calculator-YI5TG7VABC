@@ -18,7 +18,7 @@ export default function PHackingPlayground({ theme, toggleTheme }) {
       theme={theme}
       toggleTheme={toggleTheme}
       title="P-hacking"
-      subtitle="Testing again and again until something looks like a winner — even when nothing changed."
+      subtitle="Peeking and optional stopping inflate p-values and false discovery rate — false winners appear when the null hypothesis is still true."
       breadcrumbs={
         <>
           <a href="#/">Main calculator</a> / <a href="#/concepts">Learn the concepts</a> / P-hacking

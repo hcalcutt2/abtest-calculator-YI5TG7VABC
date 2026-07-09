@@ -193,7 +193,7 @@ export default function TypeErrorsPlayground({ theme, toggleTheme }) {
       theme={theme}
       toggleTheme={toggleTheme}
       title="Type I and Type II errors"
-      subtitle="Two ways a yes/no decision can go wrong — and why fixing one kind of mistake often creates more of the other."
+      subtitle="Type I error (false winner) vs Type II error (missed lift) — how confidence level and statistical power trade off when you reject the null hypothesis."
       breadcrumbs={
         <>
           <a href="#/">Main calculator</a> / <a href="#/concepts">Learn the concepts</a> / Type I &amp; II errors

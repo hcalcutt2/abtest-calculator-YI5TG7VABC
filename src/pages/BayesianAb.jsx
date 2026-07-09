@@ -43,7 +43,7 @@ export default function BayesianAbPage({ theme, toggleTheme }) {
   return (
     <PageShell
       title="Bayesian A/B test calculator"
-      subtitle="Estimate the probability the variant is better, combining prior beliefs with observed conversions."
+      subtitle="Bayesian A/B testing — estimate the probability the variant beats control, combining prior beliefs with observed conversions."
       theme={theme}
       toggleTheme={toggleTheme}
       breadcrumbs={<> <a href="#/">Main calculator</a> / <a href="#/advanced">Advanced tools</a> / Bayesian</>}
