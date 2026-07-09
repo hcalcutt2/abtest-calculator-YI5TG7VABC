@@ -2,7 +2,11 @@
 export const FAQ_ITEMS = [
   {
     q: "What is an A/B test calculator?",
-    a: "It helps you plan and analyse experiments without spreadsheets. Eclipse covers sample size planning, statistical significance testing, conversion rate analysis, and revenue metrics, with confidence levels, confidence intervals, and p-values explained in plain English.",
+    a: "An A/B test calculator is a tool that helps you design and interpret split tests. Before you launch, it works out how many visitors you need and how long to run the test. After you have results, it checks whether the difference between control and variant is statistically significant, and shows conversion rate, uplift, confidence intervals, and p-values without manual spreadsheet work.",
+    resource: {
+      title: "What is A/B Testing? (And Why Most Teams Are Doing It Wrong)",
+      url: "https://www.eclipsegroup.co.uk/resources/what-is-ab-testing-why-teams-get-it-wrong",
+    },
   },
   {
     q: "How does this A/B testing calculator work?",
@@ -15,10 +19,18 @@ export const FAQ_ITEMS = [
   {
     q: "What sample size do I need for A/B testing?",
     a: "It depends on baseline conversion rate, minimum detectable effect, confidence level, statistical power, and how many variants you run. Plan a test returns visitors needed per variant, total traffic, and estimated weeks to reach that sample at your current volume.",
+    resource: {
+      title: "How to Set Up Experiments Faster (Without Cutting Corners)",
+      url: "https://www.eclipsegroup.co.uk/resources/set-up-experiments-faster",
+    },
   },
   {
     q: "How long should an A/B test run?",
     a: "Run until you hit the sample size your plan requires. Stopping early inflates false positives. Ideally cover one to two full business weeks so weekday and weekend patterns are both represented. Plan a test estimates duration from your traffic.",
+    resource: {
+      title: "How To Think About Experiment Resolution",
+      url: "https://www.eclipsegroup.co.uk/resources/how-to-think-about-experiment-resolution",
+    },
   },
   {
     q: "What confidence level should I use in A/B testing?",
@@ -51,6 +63,10 @@ export const FAQ_ITEMS = [
   {
     q: "Can I measure revenue, not just conversion rate?",
     a: "Yes. Upload order-level revenue data to measure revenue per visitor (RPV) and average order value (AOV). Revenue is analysed with Welch's t-test for skewed data. You can cap outliers at the 90th, 95th, or 99th percentile before analysis.",
+    resource: {
+      title: "The CRO KPIs Your Product Team Should Actually Be Tracking",
+      url: "https://www.eclipsegroup.co.uk/resources/cro-kpis-product-team",
+    },
   },
   {
     q: "What is a sample ratio mismatch (SRM)?",

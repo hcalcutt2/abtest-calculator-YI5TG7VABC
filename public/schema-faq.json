@@ -7,7 +7,7 @@
       "name": "What is an A/B test calculator?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "It helps you plan and analyse experiments without spreadsheets. Eclipse covers sample size planning, statistical significance testing, conversion rate analysis, and revenue metrics, with confidence levels, confidence intervals, and p-values explained in plain English."
+        "text": "An A/B test calculator is a tool that helps you design and interpret split tests. Before you launch, it works out how many visitors you need and how long to run the test. After you have results, it checks whether the difference between control and variant is statistically significant, and shows conversion rate, uplift, confidence intervals, and p-values without manual spreadsheet work. Further reading: What is A/B Testing? (And Why Most Teams Are Doing It Wrong) (https://www.eclipsegroup.co.uk/resources/what-is-ab-testing-why-teams-get-it-wrong)"
       }
     },
     {
@@ -31,7 +31,7 @@
       "name": "What sample size do I need for A/B testing?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "It depends on baseline conversion rate, minimum detectable effect, confidence level, statistical power, and how many variants you run. Plan a test returns visitors needed per variant, total traffic, and estimated weeks to reach that sample at your current volume."
+        "text": "It depends on baseline conversion rate, minimum detectable effect, confidence level, statistical power, and how many variants you run. Plan a test returns visitors needed per variant, total traffic, and estimated weeks to reach that sample at your current volume. Further reading: How to Set Up Experiments Faster (Without Cutting Corners) (https://www.eclipsegroup.co.uk/resources/set-up-experiments-faster)"
       }
     },
     {
@@ -39,7 +39,7 @@
       "name": "How long should an A/B test run?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Run until you hit the sample size your plan requires. Stopping early inflates false positives. Ideally cover one to two full business weeks so weekday and weekend patterns are both represented. Plan a test estimates duration from your traffic."
+        "text": "Run until you hit the sample size your plan requires. Stopping early inflates false positives. Ideally cover one to two full business weeks so weekday and weekend patterns are both represented. Plan a test estimates duration from your traffic. Further reading: How To Think About Experiment Resolution (https://www.eclipsegroup.co.uk/resources/how-to-think-about-experiment-resolution)"
       }
     },
     {
@@ -103,7 +103,7 @@
       "name": "Can I measure revenue, not just conversion rate?",
       "acceptedAnswer": {
         "@type": "Answer",
-        "text": "Yes. Upload order-level revenue data to measure revenue per visitor (RPV) and average order value (AOV). Revenue is analysed with Welch's t-test for skewed data. You can cap outliers at the 90th, 95th, or 99th percentile before analysis."
+        "text": "Yes. Upload order-level revenue data to measure revenue per visitor (RPV) and average order value (AOV). Revenue is analysed with Welch's t-test for skewed data. You can cap outliers at the 90th, 95th, or 99th percentile before analysis. Further reading: The CRO KPIs Your Product Team Should Actually Be Tracking (https://www.eclipsegroup.co.uk/resources/cro-kpis-product-team)"
       }
     },
     {

@@ -793,13 +793,22 @@ function FaqSection() {
     <section className="faq-section" aria-labelledby="faq-heading">
       <h2 id="faq-heading" className="faq-heading">A/B test calculator FAQ</h2>
       <div className="faq-list">
-        {FAQ_ITEMS.map(({ q, a }) => (
+        {FAQ_ITEMS.map(({ q, a, resource }) => (
           <details key={q} className="faq-item">
             <summary className="faq-summary">
               <span className="faq-q">{q}</span>
               <span className="faq-chevron" aria-hidden="true" />
             </summary>
             <p className="faq-a">{a}</p>
+            {resource && (
+              <div className="faq-resource">
+                <span className="faq-resource-label">Learn more</span>
+                <a href={resource.url} className="faq-resource-link" target="_blank" rel="noopener noreferrer">
+                  {resource.title}
+                </a>
+                <span className="faq-resource-source">Eclipse Group</span>
+              </div>
+            )}
           </details>
         ))}
       </div>
@@ -1387,16 +1396,17 @@ function PreTest({ confidence, twoTailed, power, setPower, goal }) {
 
       <section className="panel results" aria-live="polite" aria-labelledby="pre-r">
         <div className="results-head">
-          <h2 id="pre-r" className="panel-title">Sample size results</h2>
-          <div className="test-chip-row">
-            <div className="test-pill">{twoTailed ? "Two-tailed" : "One-tailed"}</div>
-            <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
-            <div className="test-pill">{Math.round(power * 100)}% power</div>
-            <div className="test-pill">{decrease ? "Decrease is a winner" : "Increase is a winner"}</div>
+          <div className="results-head-main">
+            <h2 id="pre-r" className="panel-title">Sample size results</h2>
+            <div className="test-chip-row">
+              <div className="test-pill">{twoTailed ? "Two-tailed" : "One-tailed"}</div>
+              <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
+              <div className="test-pill">{Math.round(power * 100)}% power</div>
+              <div className="test-pill">{decrease ? "Decrease is a winner" : "Increase is a winner"}</div>
+            </div>
           </div>
-        </div>
-        {result && (
-          <ExportButtons
+          {result && (
+            <ExportButtons
             onCsv={() => {
               const rows = [
                 ["Eclipse - Test planning", ""],
@@ -1443,6 +1453,10 @@ function PreTest({ confidence, twoTailed, power, setPower, goal }) {
                 result.chart.map(c => `Week ${c.week}: ${c.mde != null ? c.mde + "%" : "-"}`) },
             ])}
           />
+          )}
+        </div>
+        {!result && (
+          <p className="empty">Enter your test details to see sample size estimates.</p>
         )}
         {result && (
           <>
@@ -1704,15 +1718,16 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
 
       <section className="panel results" aria-live="polite" aria-labelledby="pre-rev-r">
         <div className="results-head">
-          <h2 id="pre-rev-r" className="panel-title">Sample size results</h2>
-          <div className="test-chip-row">
-            <div className="test-pill">{twoTailed ? "Two-tailed" : "One-tailed"}</div>
-            <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
-            <div className="test-pill">{Math.round(power * 100)}% power</div>
+          <div className="results-head-main">
+            <h2 id="pre-rev-r" className="panel-title">Sample size results</h2>
+            <div className="test-chip-row">
+              <div className="test-pill">{twoTailed ? "Two-tailed" : "One-tailed"}</div>
+              <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
+              <div className="test-pill">{Math.round(power * 100)}% power</div>
+            </div>
           </div>
-        </div>
-        {result && (
-          <ExportButtons
+          {result && (
+            <ExportButtons
             onCsv={() => {
               const rows = [
                 [`Eclipse - ${metricLabel} planning`, ""],
@@ -1756,6 +1771,10 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
               ]);
             }}
           />
+          )}
+        </div>
+        {!result && (
+          <p className="empty">Enter your test details to see sample size estimates.</p>
         )}
         {result && (
           <>
@@ -1971,10 +1990,19 @@ function MetricDetailedStats({ armStats, metricKey, metricShort, caption, result
   );
 }
 
+function verdictHeadline(kind, txtOverride) {
+  const map = {
+    winner: "Significant winner",
+    loser: "Significant loser",
+    ns: "Not significant",
+  };
+  return txtOverride || map[kind] || map.ns;
+}
+
 function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   relUplift, pRaw, pAdj, corrected, ciBase, ciVar, ciUpliftLo, ciUpliftHi, baseCiLabel, varCiLabel,
   confidence, twoTailed, ciFmt, addDays, metricNoun = "performed", meaningOverride, zScore, goal = "increase", skewVerdict,
-  sdBase, sdVar, baseSdLabel, varSdLabel }) {
+  sdBase, sdVar, baseSdLabel, varSdLabel, upliftLabel = "Uplift", verdictOverride }) {
   const [showDetails, setShowDetails] = useState(false);
   const alpha = 1 - confidence;
   const decisionP = corrected ? pAdj : pRaw;
@@ -2000,7 +2028,8 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
   const who = name.split(" vs ")[0];
   const betterTxt = goal === "decrease" ? "lower" : "better";
   const worseTxt = goal === "decrease" ? "higher" : "worse";
-  
+  const upliftPositive = (goal === "decrease" && relUplift <= 0) || (goal === "increase" && relUplift >= 0);
+
   const meaning = meaningOverride || (
     kind === "winner"
       ? `The difference is large enough to be a real effect, not random fluctuation - ${who} ${metricNoun} ${betterTxt} than Variant A.`
@@ -2010,60 +2039,63 @@ function ResultCard({ name, baseLabel, varLabel, baseVal, varVal,
 
   return (
     <article className={`result-card-v2 v2-${kind}`}>
-      <div className="v2-header">
-        <div className="v2-verdict-wrap">
-          <Verdict kind={kind} />
-          <h4 className="v2-title">{name}</h4>
+      <div className="v2-split">
+        <div className="v2-split-verdict">
+          <h4 className="v2-split-title">{name}</h4>
+          <p className="v2-split-headline">{verdictHeadline(kind, verdictOverride)}</p>
+          <p className="v2-split-conf">
+            {confValue != null ? `${confValue.toFixed(1)}% confidence` : "Confidence unavailable"}
+          </p>
         </div>
-        <div className="v2-conf-pill">
-          <span className="v2-conf-val">{confValue != null ? `${confValue.toFixed(1)}%` : "-"}</span>
-          <span className="v2-conf-label">Confidence</span>
+        <div className="v2-split-metrics">
+          <div className="v2-metric-main">
+            <div className="v2-m-label">{upliftLabel}</div>
+            <div className={`v2-m-val ${upliftPositive ? "text-win" : "text-lose"}`}>
+              {fmtSignedPct(relUplift)}
+            </div>
+          </div>
+          <div className="v2-metric-stack">
+            <div className="v2-m-item">
+              <span className="v2-m-i-label">{baseLabel || "Control conversion rate"}</span>
+              <span className="v2-m-i-val">{baseVal}</span>
+            </div>
+            <div className="v2-m-item">
+              <span className="v2-m-i-label">{varLabel || "Variant conversion rate"}</span>
+              <span className="v2-m-i-val">{varVal}</span>
+            </div>
+          </div>
         </div>
       </div>
 
-      <p className="v2-meaning">{meaning}</p>
-
       {corrected && Number.isFinite(pAdj) && (
-        <p className="correction-inline">
+        <p className="correction-inline v2-card-note">
           Verdict uses <Explainer id="holm_analysis" inline label="Holm–Bonferroni adjusted p-value" />{" "}
           {fmtP(pAdj)} (raw p-value {fmtP(pRaw)}).
         </p>
       )}
 
-      {skewVerdict && skewVerdict.level !== 'low' && (
-        <div className={`skew-banner skew-${skewVerdict.level}`}>
+      {skewVerdict && skewVerdict.level !== "low" && (
+        <div className={`skew-banner skew-${skewVerdict.level} v2-card-note`}>
           <span className="skew-icon">!</span>
           <span className="skew-text">{skewVerdict.text}</span>
         </div>
       )}
 
-      <div className="v2-metrics">
-        <div className="v2-metric-main">
-          <div className="v2-m-label">Relative Uplift</div>
-          <div className={`v2-m-val ${((goal === "decrease" && relUplift <= 0) || (goal === "increase" && relUplift >= 0)) ? 'text-win' : 'text-lose'}`}>
-            {fmtSignedPct(relUplift)}
-          </div>
-        </div>
-        <div className="v2-metric-grid">
-          <div className="v2-m-item">
-            <span className="v2-m-i-label">{baseLabel || "Control"}</span>
-            <span className="v2-m-i-val">{baseVal}</span>
-          </div>
-          <div className="v2-m-item">
-            <span className="v2-m-i-label">{varLabel || "Variant"}</span>
-            <span className="v2-m-i-val">{varVal}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="v2-details-toggle-wrap">
-        <button type="button" className="btn-text" onClick={() => setShowDetails(!showDetails)}>
-          {showDetails ? "− Hide statistical details" : "+ Show statistical details"}
+      <div className="v2-card-footer">
+        <button
+          type="button"
+          className="v2-details-btn"
+          aria-expanded={showDetails}
+          onClick={() => setShowDetails(!showDetails)}
+        >
+          <span className={`v2-details-chevron${showDetails ? " v2-details-chevron-open" : ""}`} aria-hidden="true" />
+          {showDetails ? "Hide details" : "Show details"}
         </button>
       </div>
 
       {showDetails && (
         <div className="v2-details">
+          <p className="v2-meaning">{meaning}</p>
           <div className="v2-d-row">
             <div className="v2-d-col">
               <span className="v2-d-label"><Explainer id={corrected ? "pvalue_adj" : "pvalue"} inline label="p-value (raw)" /></span>
@@ -2140,7 +2172,6 @@ function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw
   const [showDetails, setShowDetails] = useState(false);
   const confPct = Math.round(confidence * 100);
   const confirmed = pRaw < 1 - confidence;
-  // verdict: confirmed non-inferior / worse than margin / inconclusive
   let kind, verdictTxt;
   if (confirmed) {
     kind = "winner"; verdictTxt = "Non-inferiority confirmed";
@@ -2158,47 +2189,47 @@ function NonInfCard({ name, p1, p2, relDiff, marginRel, upperBound, margin, pRaw
 
   return (
     <article className={`result-card-v2 v2-${kind}`}>
-      <div className="v2-header">
-        <div className="v2-verdict-wrap">
-          <Verdict kind={kind === 'winner' ? 'winner' : kind === 'loser' ? 'loser' : 'ns'} 
-                   txtOverride={verdictTxt} />
-          <h4 className="v2-title">{name}</h4>
+      <div className="v2-split">
+        <div className="v2-split-verdict">
+          <h4 className="v2-split-title">{name}</h4>
+          <p className="v2-split-headline">{verdictTxt}</p>
+          <p className="v2-split-conf">{fmtPct(1 - pRaw, 1)} confidence</p>
         </div>
-        <div className="v2-conf-pill">
-          <span className="v2-conf-val">{fmtPct(1 - pRaw, 1)}</span>
-          <span className="v2-conf-label">Confidence</span>
-        </div>
-      </div>
-
-      <p className="v2-meaning">{meaning}</p>
-
-      <div className="v2-metrics">
-        <div className="v2-metric-main">
-          <div className="v2-m-label">Relative Difference</div>
-          <div className={`v2-m-val ${relDiff >= 0 ? 'text-win' : 'text-lose'}`}>
-            {fmtSignedPct(relDiff)}
+        <div className="v2-split-metrics">
+          <div className="v2-metric-main">
+            <div className="v2-m-label">Relative difference</div>
+            <div className={`v2-m-val ${relDiff >= 0 ? "text-win" : "text-lose"}`}>
+              {fmtSignedPct(relDiff)}
+            </div>
           </div>
-        </div>
-        <div className="v2-metric-grid">
-          <div className="v2-m-item">
-            <span className="v2-m-i-label">Control CVR</span>
-            <span className="v2-m-i-val">{fmtPct(p1)}</span>
-          </div>
-          <div className="v2-m-item">
-            <span className="v2-m-i-label">Variant CVR</span>
-            <span className="v2-m-i-val">{fmtPct(p2)}</span>
+          <div className="v2-metric-stack">
+            <div className="v2-m-item">
+              <span className="v2-m-i-label">Control conversion rate</span>
+              <span className="v2-m-i-val">{fmtPct(p1)}</span>
+            </div>
+            <div className="v2-m-item">
+              <span className="v2-m-i-label">{name} conversion rate</span>
+              <span className="v2-m-i-val">{fmtPct(p2)}</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="v2-details-toggle-wrap">
-        <button type="button" className="btn-text" onClick={() => setShowDetails(!showDetails)}>
-          {showDetails ? "− Hide statistical details" : "+ Show statistical details"}
+      <div className="v2-card-footer">
+        <button
+          type="button"
+          className="v2-details-btn"
+          aria-expanded={showDetails}
+          onClick={() => setShowDetails(!showDetails)}
+        >
+          <span className={`v2-details-chevron${showDetails ? " v2-details-chevron-open" : ""}`} aria-hidden="true" />
+          {showDetails ? "Hide details" : "Show details"}
         </button>
       </div>
 
       {showDetails && (
         <div className="v2-details">
+          <p className="v2-meaning">{meaning}</p>
           <div className="v2-d-row">
             <div className="v2-d-col">
               <span className="v2-d-label"><Explainer id="noninf" inline label="Acceptable Margin" /></span>
@@ -2341,16 +2372,17 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
 
       <section className="panel results" aria-live="polite" aria-labelledby="cvr-r">
         <div className="results-head">
-          <h2 id="cvr-r" className="panel-title">Statistical significance results</h2>
-          <div className="test-chip-row">
-            <div className="test-pill">{isNonInf ? "Non-inferiority" : (twoTailed ? "Two-tailed" : "One-tailed")}</div>
-            <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
-            {isNonInf && <div className="test-pill">{fmtPct(marginRel)} margin</div>}
-            {!isNonInf && corrected && <div className="test-pill">Multi-variant corrected</div>}
+          <div className="results-head-main">
+            <h2 id="cvr-r" className="panel-title">Statistical significance results</h2>
+            <div className="test-chip-row">
+              <div className="test-pill">{isNonInf ? "Non-inferiority" : (twoTailed ? "Two-tailed" : "One-tailed")}</div>
+              <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
+              {isNonInf && <div className="test-pill">{fmtPct(marginRel)} margin</div>}
+              {!isNonInf && corrected && <div className="test-pill">Multi-variant corrected</div>}
+            </div>
           </div>
-        </div>
-        {ready && (
-          <ExportButtons
+          {ready && (
+            <ExportButtons
             onCsv={() => {
               const head = [
                 ["Eclipse - Conversion rate analysis", ""],
@@ -2404,7 +2436,8 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
               ]);
             }}
           />
-        )}
+          )}
+        </div>
         {!ready && calculated && <p className="empty">Enter your test data to calculate results.</p>}
         {ready && (
           <>
@@ -2432,8 +2465,8 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
                 : results.map((r) => (
                     <ResultCard
                       key={r.name}
-                      name={`${r.name} vs Variant A (Control)`}
-                      baseLabel="Variant A (Control) Conversion Rate" varLabel={`${r.name} Conversion Rate`}
+                      name={`${r.name} vs Variant A`}
+                      baseLabel="Control conversion rate" varLabel={`${r.name} conversion rate`}
                       baseVal={fmtPct(r.p1)} varVal={fmtPct(r.p2)}
                       relUplift={r.relUplift}
                       pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
@@ -2719,6 +2752,23 @@ function parseMultiVariantRevenueFile(text, k) {
   return { variants, errors };
 }
 
+const DEMO_AOV_BY_ARM = [48, 52, 50, 51, 49, 53, 47, 54];
+
+function syntheticOrderValues(seed, count, meanAov) {
+  let s = seed >>> 0;
+  const rand = () => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s / 4294967296;
+  };
+  const vals = [];
+  for (let i = 0; i < count; i++) {
+    const noise = 0.25 + rand() * 1.75;
+    const spike = rand() > 0.985 ? 2.5 + rand() * 8 : 1;
+    vals.push(+(meanAov * noise * spike).toFixed(2));
+  }
+  return vals;
+}
+
 function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVariantCount, durationDays, setDurationDays }) {
   const labels = makeLabels(k);
 
@@ -2767,23 +2817,33 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
 
   // Parse results
   const armData = labels.map((nm, i) => {
-    const fp = isMultiCol
-      ? (combinedFileParsed?.variants?.[i]
-          ? { ...combinedFileParsed.variants[i], name: combinedFileParsed.name }
-          : null)
-      : fileParsed[i];
+    const uploaded = isMultiCol ? combinedFileParsed?.variants?.[i] : fileParsed[i];
+    const hasUploaded = Boolean(uploaded?.values?.length);
     const vRaw = effectiveVisitors[i];
     const visitors = Number(vRaw);
     const visitorsOk = Number.isInteger(visitors) && visitors > 0;
-    const orders = fp ? fp.values : [];
-    const orderCount = orders.length;
     const convRaw = effectiveConversions[i];
     const convNum = Number(convRaw);
     const convEntered = convRaw !== '' && Number.isInteger(convNum) && convNum > 0;
 
+    let orders = [];
+    let fp = null;
+    let usingDemoOrders = false;
+    if (hasUploaded) {
+      orders = uploaded.values;
+      fp = isMultiCol
+        ? { ...uploaded, name: combinedFileParsed.name }
+        : uploaded;
+    } else if (convEntered && convNum >= 2) {
+      orders = syntheticOrderValues(1000 + i * 137, convNum, DEMO_AOV_BY_ARM[i] ?? 48);
+      usingDemoOrders = true;
+      fp = { values: orders, errors: [], name: "Estimated from conversions", usingDemoOrders: true };
+    }
+    const orderCount = orders.length;
+
     // Cross-check: file orders vs conversions from CVR tab
     let mismatch = null;
-    if (convEntered && orderCount > 0 && orderCount !== convNum) {
+    if (!usingDemoOrders && convEntered && orderCount > 0 && orderCount !== convNum) {
       if (orderCount > convNum)
         mismatch = `The file contains ${fmtInt(orderCount)} orders but ${fmtInt(convNum)} conversions are recorded above. This could mean a wrong date range, duplicate orders, or multiple orders per visitor.`;
       else
@@ -2796,7 +2856,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     else if (calculated && vRaw === '') visitorsError = 'Enter visitors - needed for revenue per visitor.';
 
     return { name: nm, visitors, visitorsOk: !visitorsError, visitorsError, vRaw,
-             orders, orderCount, fp, mismatch };
+             orders, orderCount, fp, mismatch, usingDemoOrders };
   });
 
   const combinedFileOk = !isMultiCol || (
@@ -2806,13 +2866,14 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   );
   const noFileErrors = isMultiCol
     ? combinedFileOk
-    : armData.every(a => !a.fp || a.fp.errors.length === 0);
-  const allFilesLoaded = noFileErrors && armData.every(a => a.orderCount >= 2);
+    : armData.every(a => !a.fp || a.usingDemoOrders || a.fp.errors.length === 0);
+  const allArmsReady = noFileErrors && armData.every(a => a.orderCount >= 2);
   const allVisitorsOk  = armData.every(a => a.visitorsOk);
   const allocSum = alloc.reduce((a, b) => a + (Number(b) || 0), 0);
   const allocOk  = Math.abs(allocSum - 100) <= 0.5;
-  const inputsValid = allFilesLoaded && allVisitorsOk && allocOk;
-  const ready = calculated && inputsValid;
+  const inputsValid = allArmsReady && allVisitorsOk && allocOk;
+  const ready = inputsValid;
+  const usingDemoOrders = armData.some(a => a.usingDemoOrders);
 
   let analysis = null;
   if (ready) {
@@ -3133,16 +3194,17 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
 
       <section className="panel results" aria-live="polite" aria-labelledby="rev-r">
         <div className="results-head">
-          <h2 id="rev-r" className="panel-title">Statistical significance results</h2>
-          <div className="test-chip-row">
-            <div className="test-pill">{twoTailed ? 'Two-tailed' : 'One-tailed'}</div>
-            <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
-            {corrected && <div className="test-pill">Multi-variant corrected</div>}
-            {winsorize && <div className="test-pill">Outliers capped ({outlierPct * 100}th pct)</div>}
+          <div className="results-head-main">
+            <h2 id="rev-r" className="panel-title">Statistical significance results</h2>
+            <div className="test-chip-row">
+              <div className="test-pill">{twoTailed ? 'Two-tailed' : 'One-tailed'}</div>
+              <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
+              {corrected && <div className="test-pill">Multi-variant corrected</div>}
+              {winsorize && <div className="test-pill">Outliers capped ({outlierPct * 100}th pct)</div>}
+            </div>
           </div>
-        </div>
-        {analysis && (
-          <ExportButtons
+          {analysis && (
+            <ExportButtons
             onCsv={() => {
               const rows = [
                 ["Eclipse - Revenue analysis", ""],
@@ -3185,10 +3247,19 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               ]);
             }}
           />
+          )}
+        </div>
+        {!analysis && !inputsValid && (
+          <p className="empty">Enter visitors and conversions (or upload order files) to calculate results.</p>
         )}
-        {!analysis && <p className="empty">Enter your test data to calculate results.</p>}
         {analysis && (
           <>
+            {usingDemoOrders && (
+              <p className="note">
+                Showing illustrative revenue estimates from your conversion counts.
+                Upload order-level files for precise analysis.
+              </p>
+            )}
             <SrmBanner srm={analysis.srm} />
             <CorrectionsNotice items={revenueAnalysisCorrections({
               k, corrected, confidence, winsorize, outlierPct, srm: analysis.srm,
@@ -3206,8 +3277,9 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               </p>
               {analysis.rpv.map((r, i) => (
                 <ResultCard key={`rpv-${r.name}`}
-                  name={`${r.name} vs Variant A (Control)`}
-                  baseLabel="Variant A (Control) RPV" varLabel={`${r.name} RPV`}
+                  name={`${r.name} vs Variant A`}
+                  baseLabel="Control RPV" varLabel={`${r.name} RPV`}
+                  upliftLabel="Uplift"
                   baseVal={fmtMoney(r.m1)} varVal={fmtMoney(r.m2)}
                   relUplift={r.relUplift} pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
                   ciBase={r.ciMeanA} ciVar={r.ciMeanB}
@@ -3245,8 +3317,9 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               </div>
               {analysis.aov.map((r, i) => (
                 <ResultCard key={`aov-${r.name}`}
-                  name={`${r.name} vs Variant A (Control)`}
-                  baseLabel="Variant A (Control) AOV" varLabel={`${r.name} AOV`}
+                  name={`${r.name} vs Variant A`}
+                  baseLabel="Control AOV" varLabel={`${r.name} AOV`}
+                  upliftLabel="Uplift"
                   baseVal={fmtMoney(r.m1)} varVal={fmtMoney(r.m2)}
                   relUplift={r.relUplift} pRaw={r.pRaw} pAdj={r.pAdj} corrected={corrected}
                   ciBase={r.ciMeanA} ciVar={r.ciMeanB}
@@ -3772,8 +3845,12 @@ export default function EclipseCalculator({ theme: themeProp, toggleTheme: toggl
             <span className="beta-badge">Beta</span>
           </div>
           <p className="intro-text">
-            Plan sample sizes and test duration before you start, then analyse statistical significance
-            for conversion rate, revenue, confidence levels, and confidence intervals.
+            The best A/B test calculator is one that helps you both plan and analyse experiments,
+            not just calculate statistical significance. Our calculator lets you estimate sample size,
+            predict test duration, choose an appropriate Minimum Detectable Effect (MDE), perform power
+            analysis, and analyse completed experiments using standard statistical methods. Instead of
+            jumping between multiple tools, you can design, run, and interpret experiments from one place,
+            making it easier to reach trustworthy decisions.
           </p>
           <p className="intro-privacy">
             All statistics run here in your browser. Your numbers are never uploaded or stored on a server.
@@ -4075,8 +4152,8 @@ const CSS = `
 .intro{max-width:1080px;margin:20px auto 0;text-align:left;}
 .page-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:700;font-size:28px;
   line-height:1.2;letter-spacing:-0.03em;color:var(--navy);margin:0 0 10px;}
-.intro-text{color:var(--muted);font-size:16px;line-height:1.55;margin:0;max-width:65ch;}
-.intro-privacy{color:var(--muted);font-size:13.5px;line-height:1.5;margin:10px 0 0;max-width:65ch;opacity:0.9;}
+.intro-text{color:var(--muted);font-size:16px;line-height:1.55;margin:0;}
+.intro-privacy{color:var(--muted);font-size:13.5px;line-height:1.5;margin:10px 0 0;opacity:0.9;}
 [data-theme='dark'] .intro-text{color:var(--muted);}
 [data-theme='dark'] .intro-privacy{color:var(--muted);}
 
@@ -4206,10 +4283,11 @@ const CSS = `
 }
 .panel-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;font-size:20px;margin:0 0 14px;color:var(--navy);letter-spacing:-0.025em;line-height:1.2;}
 [data-theme='dark'] .panel-title{color:var(--ink);}
-.results-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;
-  flex-wrap:wrap;}
+.results-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;
+  flex-wrap:wrap;margin-bottom:4px;}
+.results-head-main{flex:1;min-width:min(100%,240px);}
 .results-head .panel-title{margin-bottom:8px;}
-.export-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0 0 14px;}
+.export-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0;flex-shrink:0;}
 .btn-export{display:inline-flex;align-items:center;gap:6px;background:var(--card);
   border:1.5px solid var(--line);border-radius:9px;padding:6px 14px;font-size:13px;font-weight:600;
   color:var(--purple-deep);cursor:pointer;font-family:'Inter',sans-serif;}
@@ -4520,7 +4598,17 @@ const CSS = `
   border-right:2px solid currentColor;border-bottom:2px solid currentColor;
   transform:rotate(45deg);margin-top:-3px;}
 .faq-summary:hover .faq-chevron{border-color:var(--purple);}
-.faq-a{margin:0 0 16px;padding-right:36px;color:var(--ink);opacity:.88;font-size:15px;line-height:1.55;max-width:70ch;}
+.faq-a{margin:0 0 8px;padding-right:36px;color:var(--ink);opacity:.88;font-size:15px;line-height:1.55;max-width:70ch;}
+.faq-resource{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin:0 0 16px;padding-right:36px;font-size:14px;line-height:1.45;}
+.faq-resource-label{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;
+  font-size:11px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;
+  color:var(--purple-deep);background:var(--purple-soft);border:1px solid var(--line);flex:none;}
+[data-theme='dark'] .faq-resource-label{color:var(--purple-bright);border-color:var(--line);}
+.faq-resource-link{font-weight:600;color:var(--purple);text-decoration:none;}
+.faq-resource-link:hover{text-decoration:underline;}
+[data-theme='dark'] .faq-resource-link{color:var(--purple-bright);}
+.faq-resource-source{color:var(--muted);font-weight:500;font-size:13px;}
+.faq-resource-source::before{content:"·";margin-right:10px;color:var(--line);}
 [data-theme='dark'] .faq-a{color:var(--ink);opacity:.88;}
 @media (max-width:600px){
   .faq-section{padding:20px 16px;border-radius:0;border-inline:0;}
@@ -4543,38 +4631,51 @@ const CSS = `
 .skew-icon{font-weight:700;font-size:16px;flex:none;}
 .skew-text{flex:1;}
 
-.result-card-v2{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:24px;margin:16px 0;box-shadow:var(--shadow);position:relative;}
-@media (max-width:600px){
-  .result-card-v2{padding:16px;}
-}
-.v2-winner{border-left:5px solid var(--win);}
-.v2-loser{border-left:5px solid var(--lose);}
-.v2-ns{border-left:5px solid var(--ns);}
+.result-card-v2{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);margin:16px 0;box-shadow:var(--shadow);position:relative;overflow:hidden;}
+.v2-winner{border-color:var(--win);}
+.v2-loser{border-color:var(--lose);}
+.v2-ns{border-color:var(--line);}
 
-.v2-header{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;margin-bottom:16px;flex-wrap:wrap;}
-.v2-verdict-wrap{display:flex;flex-direction:column;gap:8px;}
-.v2-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:14px;font-weight:600;color:var(--muted);margin:0;text-transform:uppercase;letter-spacing:0.05em;}
-.v2-conf-pill{background:var(--paper);padding:8px 16px;border-radius:12px;display:flex;flex-direction:column;align-items:center;border:1px solid var(--line);}
-.v2-conf-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:20px;font-weight:700;color:var(--ink);line-height:1;}
-.v2-conf-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;margin-top:4px;}
+.v2-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);min-height:168px;}
+@media (max-width:640px){.v2-split{grid-template-columns:1fr;}}
+.v2-split-verdict{background:var(--grad);color:#fff;padding:22px 24px;display:flex;flex-direction:column;justify-content:flex-end;gap:6px;min-height:168px;}
+.v2-winner .v2-split-verdict{background:linear-gradient(145deg,var(--grad) 0%,#157347 220%);}
+.v2-loser .v2-split-verdict{background:linear-gradient(145deg,var(--grad) 0%,#8B2E28 220%);}
+.v2-split-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:11px;font-weight:600;color:rgba(255,255,255,0.78);margin:0 0 auto;text-transform:uppercase;letter-spacing:0.07em;line-height:1.35;}
+.v2-split-headline{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:clamp(22px,4vw,30px);font-weight:700;line-height:1.1;margin:0;color:#fff;}
+.v2-split-conf{font-size:14px;color:rgba(255,255,255,0.72);margin:0;line-height:1.35;}
+.v2-split-metrics{padding:22px 24px;display:flex;flex-direction:column;justify-content:center;gap:18px;background:var(--paper);}
+@media (max-width:640px){.v2-split-metrics{border-top:1px solid var(--line);}}
+[data-theme='dark'] .v2-split-verdict{background:var(--purple-bright);color:var(--navy);}
+[data-theme='dark'] .v2-winner .v2-split-verdict{background:linear-gradient(145deg,var(--purple-bright) 0%,#34D399 220%);color:var(--navy);}
+[data-theme='dark'] .v2-loser .v2-split-verdict{background:linear-gradient(145deg,var(--purple-bright) 0%,#F87171 220%);color:var(--navy);}
+[data-theme='dark'] .v2-split-title{color:rgba(28,19,40,0.62);}
+[data-theme='dark'] .v2-split-headline{color:var(--navy);}
+[data-theme='dark'] .v2-split-conf{color:rgba(28,19,40,0.68);}
 
-.v2-meaning{font-size:15px;line-height:1.5;color:var(--ink);margin:0 0 24px;max-width:65ch;}
-
-.v2-metrics{display:flex;gap:24px;align-items:center;background:var(--paper);padding:20px;border-radius:16px;margin-bottom:20px;flex-wrap:wrap;}
-@media (max-width:600px){.v2-metrics{padding:16px;gap:16px;flex-direction:column;align-items:stretch;}}
-.v2-metric-main{flex:1;}
-@media (max-width:600px){.v2-metric-main{min-width:0;width:100%;text-align:left;}}
-.v2-m-label{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:4px;}
-.v2-m-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:32px;font-weight:700;line-height:1;}
-@media (max-width:600px){.v2-m-val{font-size:28px;}}
-.v2-metric-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;flex:1;border-left:1px solid var(--line);padding-left:24px;}
-@media (max-width:600px){.v2-metric-grid{border-left:0;padding-left:0;padding-top:16px;border-top:1px solid var(--line);min-width:0;width:100%;grid-template-columns:1fr;gap:12px;text-align:left;}}
-.v2-m-item{display:flex;flex-direction:column;gap:4px;}
-.v2-m-i-label{font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;}
+.v2-metric-main{min-width:0;}
+.v2-m-label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px;}
+.v2-m-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:clamp(28px,5vw,34px);font-weight:700;line-height:1;}
+.v2-metric-stack{display:flex;flex-direction:column;gap:10px;}
+.v2-m-item{display:flex;flex-direction:column;gap:2px;}
+.v2-m-i-label{font-size:12px;font-weight:600;color:var(--muted);}
 .v2-m-i-val{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-size:18px;font-weight:600;color:var(--ink);}
-@media (max-width:600px){.v2-m-i-val{font-size:16px;}}
 
-.v2-details{border-top:1px solid var(--line);padding-top:16px;}
+.v2-card-note{margin:0;padding:12px 24px;border-top:1px solid var(--line);}
+.v2-card-footer{border-top:1px solid var(--line);padding:14px 24px 16px;}
+.v2-details-btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--purple);color:var(--purple);
+  background:transparent;padding:8px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;
+  border-radius:6px;cursor:pointer;font-family:'Inter',sans-serif;transition:border-color .15s,background .15s,color .15s;}
+[data-theme='dark'] .v2-details-btn{color:var(--purple-bright);border-color:var(--purple-bright);}
+.v2-details-btn:hover{background:var(--purple-soft);}
+[data-theme='dark'] .v2-details-btn:hover{background:rgba(129,140,248,0.12);}
+.v2-details-chevron{display:inline-block;width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;
+  transform:rotate(45deg);margin-top:-2px;transition:transform .2s ease;}
+.v2-details-chevron-open{transform:rotate(-135deg);margin-top:2px;}
+
+.v2-meaning{font-size:15px;line-height:1.5;color:var(--ink);margin:0 0 16px;max-width:65ch;}
+
+.v2-details{border-top:1px solid var(--line);padding:16px 24px 20px;background:var(--paper);}
 .v2-d-row{display:flex;gap:24px;flex-wrap:wrap;}
 @media (max-width:600px){.v2-d-row{gap:16px 12px;}}
 .v2-d-col{display:flex;flex-direction:column;gap:2px;}
@@ -4586,7 +4687,7 @@ const CSS = `
 .text-win{color:var(--win);}
 .text-lose{color:var(--lose);}
 
-.v2-footer{margin-top:16px;}
+.v2-footer{padding:0 24px 16px;}
 
 .result-card{border:1px solid var(--line);border-radius:14px;padding:16px 18px;
   margin:12px 0;background:var(--card);box-shadow:var(--shadow);}
