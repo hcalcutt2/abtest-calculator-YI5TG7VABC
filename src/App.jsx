@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -1064,14 +1064,39 @@ function SegControl({ legend, options, value, onChange, name, explainerId }) {
   );
 }
 
-function ExampleInput({ showExample = false, className = "input", ...props }) {
-  if (!showExample) {
-    return <input className={className} {...props} />;
-  }
+function ExampleInput({ showExample = false, className = "input", value, onChange, onFocus, onBlur, ...props }) {
+  const [editing, setEditing] = useState(false);
+
+  useEffect(() => {
+    if (!showExample) setEditing(false);
+  }, [showExample]);
+
+  const showingExample = showExample && !editing;
+
+  const handleFocus = (e) => {
+    if (showingExample) {
+      setEditing(true);
+      onChange?.({ target: { value: "" } });
+    }
+    onFocus?.(e);
+  };
+
+  const handleChange = (e) => {
+    if (showExample && !editing) setEditing(true);
+    onChange?.(e);
+  };
+
   return (
-    <div className={`example-input example-input-on ${className}`}>
-      <span className="example-input-eg" aria-hidden="true">e.g.</span>
-      <input className="example-input-field" {...props} />
+    <div className={`example-input${showingExample ? " example-input-on" : ""} ${className}`}>
+      {showingExample && <span className="example-input-eg" aria-hidden="true">e.g.</span>}
+      <input
+        className="example-input-field"
+        value={value ?? ""}
+        onChange={handleChange}
+        onFocus={handleFocus}
+        onBlur={onBlur}
+        {...props}
+      />
     </div>
   );
 }
@@ -2834,8 +2859,8 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
   const labels = makeLabels(k);
 
   // Per-variant local state: visitor/conversion overrides, file parse result, file name
-  const [visitorOverrides, setVisitorOverrides] = useState(Array(8).fill(''));
-  const [convOverrides, setConvOverrides]       = useState(Array(8).fill(''));
+  const [visitorOverrides, setVisitorOverrides] = useState(Array(8).fill(null));
+  const [convOverrides, setConvOverrides]       = useState(Array(8).fill(null));
   const [fileParsed, setFileParsed]             = useState(Array(8).fill(null)); // {values,errors,name}
   const [combinedFileParsed, setCombinedFileParsed] = useState(null); // {name, variants, errors}
   const [fileFormat, setFileFormat]             = useState("single"); // single | two-col | multi-col
@@ -2864,15 +2889,15 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
     setCalculated(false);
   }, [k, isMultiCol]);
 
-  // Effective visitors/conversions per variant: override takes priority, then CVR tab value
+  // Effective visitors/conversions per variant: override takes priority (including ""), then CVR tab value
   const effectiveVisitors = labels.map((_, i) => {
     const ov = visitorOverrides[i];
-    if (ov !== '') return ov;
+    if (ov !== null && ov !== undefined) return ov;
     return rows[i] ? rows[i].visitors : '';
   });
   const effectiveConversions = labels.map((_, i) => {
     const ov = convOverrides[i];
-    if (ov !== '') return ov;
+    if (ov !== null && ov !== undefined) return ov;
     return rows[i] ? rows[i].conversions : '';
   });
 
@@ -4360,16 +4385,17 @@ const CSS = `
   transition:opacity .2s ease,filter .2s ease;
 }
 .results-is-preview .results-state-note-preview{opacity:1;filter:none;}
-.example-input-on{display:inline-flex;align-items:center;gap:5px;max-width:100%;width:100%;box-sizing:border-box;}
+.example-input{display:inline-flex;align-items:center;gap:5px;max-width:100%;width:100%;box-sizing:border-box;}
 .example-input-eg{flex:none;font-size:13px;font-weight:600;color:var(--muted);font-style:italic;letter-spacing:0.02em;user-select:none;line-height:1;}
 .example-input-field{flex:1;min-width:0;width:100%;border:0 !important;background:transparent !important;padding:0 !important;
   margin:0;box-shadow:none !important;outline:0 !important;font:inherit;font-size:15.5px;font-family:'Inter',sans-serif;
-  color:var(--muted);font-feature-settings:'tnum' 1;-moz-appearance:textfield;appearance:textfield;}
+  color:var(--ink);font-feature-settings:'tnum' 1;-moz-appearance:textfield;appearance:textfield;}
+.example-input-on .example-input-field{color:var(--muted);}
 .example-input-field::-webkit-outer-spin-button,
 .example-input-field::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
-.example-input-on:focus-within{border-color:var(--purple);box-shadow:0 0 0 3px var(--purple-soft);}
-[data-theme='dark'] .example-input-on:focus-within{border-color:var(--purple-bright);box-shadow:0 0 0 3px var(--purple-soft);}
-.traffic-row .example-input-on{flex:1;min-width:0;}
+.example-input:focus-within{border-color:var(--purple);box-shadow:0 0 0 3px var(--purple-soft);}
+[data-theme='dark'] .example-input:focus-within{border-color:var(--purple-bright);box-shadow:0 0 0 3px var(--purple-soft);}
+.traffic-row .example-input{flex:1;min-width:0;}
 .export-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:0;flex-shrink:0;}
 .btn-export{display:inline-flex;align-items:center;gap:6px;background:var(--card);
   border:1.5px solid var(--line);border-radius:9px;padding:6px 14px;font-size:13px;font-weight:600;
