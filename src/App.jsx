@@ -4092,8 +4092,7 @@ export default function EclipseCalculator({ theme: themeProp, toggleTheme: toggl
         </div>
       </div>
 
-      <LearnConceptsSection />
-      <OtherCalculatorsSection />
+      {mode === "learn" ? <LearnConceptsSection /> : <OtherCalculatorsSection />}
       <FaqSection />
     </div>
   );
