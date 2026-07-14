@@ -1066,12 +1066,18 @@ function SegControl({ legend, options, value, onChange, name, explainerId }) {
 
 function ExampleInput({ showExample = false, className = "input", value, onChange, onFocus, onBlur, ...props }) {
   const [editing, setEditing] = useState(false);
+  // Once example mode turns off (usually after Calculate), never treat this field as a clearable example again.
+  // Otherwise a later settings tweak resets `calculated`, re-enables e.g. styling, and the next focus wipes real numbers.
+  const exampleDismissed = useRef(false);
 
   useEffect(() => {
-    if (!showExample) setEditing(false);
+    if (!showExample) {
+      setEditing(false);
+      exampleDismissed.current = true;
+    }
   }, [showExample]);
 
-  const showingExample = showExample && !editing;
+  const showingExample = showExample && !editing && !exampleDismissed.current;
 
   const handleFocus = (e) => {
     if (showingExample) {
@@ -1207,18 +1213,9 @@ function planningCorrections({ k, confidence, alphaAdj, comparisons }) {
   }];
 }
 
-function cvrAnalysisCorrections({ k, corrected, confidence, isNonInf, marginRel, srm }) {
+function cvrAnalysisCorrections({ confidence, isNonInf, marginRel, srm }) {
   const items = [];
   const confPct = Math.round(confidence * 100);
-  if (corrected) {
-    items.push({
-      id: "holm-cvr",
-      title: "Holm–Bonferroni p-value adjustment",
-      when: `${k - 1} variant${k - 1 === 1 ? "" : "s"} compared to control (3+ variants total).`,
-      what: `Each variant's significance verdict uses the adjusted p-value. A result can fail to clear ${confPct}% confidence after correction even if the raw p-value looked promising.`,
-      explainerId: "holm_analysis",
-    });
-  }
   if (isNonInf) {
     items.push({
       id: "noninf",
@@ -1240,18 +1237,8 @@ function cvrAnalysisCorrections({ k, corrected, confidence, isNonInf, marginRel,
   return items;
 }
 
-function revenueAnalysisCorrections({ k, corrected, confidence, winsorize, outlierPct, srm }) {
+function revenueAnalysisCorrections({ winsorize, outlierPct, srm }) {
   const items = [];
-  const confPct = Math.round(confidence * 100);
-  if (corrected) {
-    items.push({
-      id: "holm-rev",
-      title: "Holm–Bonferroni p-value adjustment",
-      when: `${k - 1} variant${k - 1 === 1 ? "" : "s"} compared to control, applied separately to RPV and AOV.`,
-      what: `Each metric runs its own Holm–Bonferroni correction across variant comparisons. Verdicts use adjusted p-values at ${confPct}% confidence.`,
-      explainerId: "holm_analysis",
-    });
-  }
   if (winsorize) {
     items.push({
       id: "winsorize",
@@ -1294,24 +1281,6 @@ function VariantStepper({ k, setVariantCount, idBase }) {
           aria-label="Add a variant" disabled={k >= 8}>+</button>
       </div>
     </Field>
-  );
-}
-
-function PlanningDataSource({ value, onChange }) {
-  return (
-    <div className="choice-row">
-      <button type="button" className={`choice-opt ${value === 'manual' ? 'choice-opt-on' : ''}`}
-        onClick={() => onChange('manual')}>
-        <span className="choice-title">Manual entry</span>
-      </button>
-      <button type="button" className={`choice-opt ${value === 'historical' ? 'choice-opt-on' : ''}`}
-        onClick={() => onChange('historical')}>
-        <span className="choice-title">
-          Historical data
-          <span className="badge-soon">Coming Soon</span>
-        </span>
-      </button>
-    </div>
   );
 }
 
@@ -1372,7 +1341,6 @@ function MetricSelector({ currentTab, setTab, revMetric, setRevMetric, mode }) {
 
 function PreTest({ confidence, twoTailed, power, setPower, goal }) {
   const decrease = goal === "decrease";
-  const [dataSource, setDataSource] = useState("manual");
   const [baseline, setBaseline] = useState("2");
   const [mde, setMde] = useState("10");
   const [traffic, setTraffic] = useState("50000");
@@ -1444,29 +1412,6 @@ function PreTest({ confidence, twoTailed, power, setPower, goal }) {
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="pre-h">
-        <PlanningDataSource value={dataSource} onChange={setDataSource} />
-
-        {dataSource === 'historical' && (
-          <div className="coming-soon-placeholder animated-fade-in">
-            <Field label={<span>Test month <span className="badge-soon">Coming Soon</span></span>} htmlFor="pre-month">
-              <select id="pre-month" className="input select" disabled style={{opacity: 0.6}}>
-                <option>Select month...</option>
-                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
-              <div className="field-hint">Used for seasonal adjustments when historical data is connected.</div>
-            </Field>
-
-            <Field label={<span>Upload historical data <span className="badge-soon">Coming Soon</span></span>}>
-              <div className="upload-placeholder">
-                <UploadIcon />
-                <span>Drag and drop your historical CSV here</span>
-              </div>
-            </Field>
-          </div>
-        )}
-
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-k" />
         {k >= 3 && (
           <p className="note">
@@ -1627,7 +1572,6 @@ function PreTest({ confidence, twoTailed, power, setPower, goal }) {
 
 /* Expandable "show the working" detail - z-test internals + distribution chart */
 function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
-  const [dataSource, setDataSource] = useState("manual");
   const [cv, setCv] = useState("1.5");
   const [mde, setMde] = useState("5");
   const [traffic, setTraffic] = useState("50000");
@@ -1726,29 +1670,6 @@ function PreTestRevenue({ confidence, twoTailed, power, setPower, revMetric }) {
   return (
     <div className="two-col">
       <section className="panel" aria-labelledby="pre-rev-h">
-        <PlanningDataSource value={dataSource} onChange={setDataSource} />
-
-        {dataSource === 'historical' && (
-          <div className="coming-soon-placeholder animated-fade-in">
-            <Field label={<span>Test month <span className="badge-soon">Coming Soon</span></span>} htmlFor="pre-rev-month">
-              <select id="pre-rev-month" className="input select" disabled style={{opacity: 0.6}}>
-                <option>Select month...</option>
-                {["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"].map(m => (
-                  <option key={m}>{m}</option>
-                ))}
-              </select>
-              <div className="field-hint">Used for seasonal adjustments when historical data is connected.</div>
-            </Field>
-
-            <Field label={<span>Upload historical revenue data <span className="badge-soon">Coming Soon</span></span>}>
-              <div className="upload-placeholder">
-                <UploadIcon />
-                <span>Drag and drop your order-level CSV here</span>
-              </div>
-            </Field>
-          </div>
-        )}
-
         <VariantStepper k={k} setVariantCount={setVariantCount} idBase="pre-rev-k" />
         {k >= 3 && (
           <p className="note">
@@ -2377,6 +2298,11 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
   const ready = calculated ? readyLive : !isNonInf;
   const corrected = k >= 3;
   const days = Number(durationDays);
+  const totalSample = ready
+    ? (calculated
+        ? parsed.reduce((sum, r) => sum + r.v, 0)
+        : DEMO_POST_CVR.rows.reduce((sum, r) => sum + Number(r.visitors), 0))
+    : null;
 
   // Additional days to reach significance for each non-significant, positive-trending variant
   if (results && Number.isInteger(days) && days > 0) {
@@ -2464,6 +2390,9 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
               <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
               {isNonInf && <div className="test-pill">{fmtPct(marginRel)} margin</div>}
               {!isNonInf && corrected && <div className="test-pill">Multi-variant corrected</div>}
+              {totalSample != null && (
+                <div className="test-pill">Total sample {fmtInt(totalSample)}</div>
+              )}
             </div>
           </div>
           {ready && calculated && (
@@ -2475,6 +2404,7 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
                 ["Test type", isNonInf ? `Non-inferiority (margin ${fmtPct(marginRel)})` : `Z-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}`],
                 ["Confidence", `${Math.round(confidence*100)}%`],
                 ["Goal direction", goal === "decrease" ? "Decrease is a winner" : "Increase is a winner"],
+                ["Total sample", totalSample],
                 ...(srm?.flagged ? [["SRM check", `Flagged (p=${fmtP(srm.p)})`]] : []),
                 [],
                 ["Variant", "Visitors", "Conversions", "CVR"],
@@ -2507,6 +2437,7 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
                   isNonInf ? `Non-inferiority test, margin ${fmtPct(marginRel)}` : `Z-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}`,
                   `Confidence: ${Math.round(confidence*100)}%`,
                   !isNonInf ? `Goal: ${currentGoal === "decrease" ? "Decrease is a winner" : "Increase is a winner"}` : "",
+                  totalSample != null ? `Total sample: ${fmtInt(totalSample)}` : "",
                   srm?.flagged ? `SRM check: FLAGGED (p=${fmtP(srm.p)}) - results may be unreliable` : "",
                 ].filter(Boolean)},
                 { heading: "Data", lines: currentParsed.map((r, i) => `${currentLabels[i]}: ${fmtInt(r.v)} visitors, ${fmtInt(r.c)} conversions (CVR ${fmtPct(r.c/r.v)})`) },
@@ -2529,7 +2460,7 @@ function PostCvr({ confidence, twoTailed, isNonInf, goal, marginPct, k, rows, se
             <ResultsStateNotice calculated={calculated} kind="analysis" />
             <SrmBanner srm={srm} />
             <CorrectionsNotice items={cvrAnalysisCorrections({
-              k, corrected, confidence, isNonInf, marginRel, srm,
+              confidence, isNonInf, marginRel, srm,
             })} />
             {Number.isInteger(days) && days > 0 && days < 14 && (
               <p className="note">
@@ -3291,6 +3222,11 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
               <div className="test-pill">{Math.round(confidence * 100)}% confidence</div>
               {corrected && <div className="test-pill">Multi-variant corrected</div>}
               {winsorize && <div className="test-pill">Outliers capped ({outlierPct * 100}th pct)</div>}
+              {analysis && (
+                <div className="test-pill">
+                  Total sample {fmtInt(analysis.armStats.reduce((sum, a) => sum + a.rpv.n, 0))}
+                </div>
+              )}
             </div>
           </div>
           {analysis && calculated && (
@@ -3301,6 +3237,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
                 ["Generated", new Date().toLocaleString("en-GB")],
                 ["Test type", `Welch's t-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}${winsorize ? `, outliers capped at ${outlierPct * 100}th pct` : ""}`],
                 ["Confidence", `${Math.round(confidence*100)}%`],
+                ["Total sample", analysis.armStats.reduce((sum, a) => sum + a.rpv.n, 0)],
                 ...(analysis.srm?.flagged ? [["SRM check", `Flagged (p=${fmtP(analysis.srm.p)})`]] : []),
                 [],
                 ["Variant", "Visitors", "Orders", "RPV", "AOV"],
@@ -3323,10 +3260,12 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
             onPdf={() => {
               const currentAnalysis = analysis;
               if (!currentAnalysis) return;
+              const totalSample = currentAnalysis.armStats.reduce((sum, a) => sum + a.rpv.n, 0);
               exportPdf("Revenue analysis", [
                 { heading: "Setup", lines: [
                   `Welch's t-test, ${twoTailed ? "two-tailed" : "one-tailed"}${corrected ? ", Holm-Bonferroni corrected" : ""}${winsorize ? `, outliers capped at ${outlierPct * 100}th percentile` : ""}`,
                   `Confidence: ${Math.round(confidence*100)}%`,
+                  `Total sample: ${fmtInt(totalSample)}`,
                   currentAnalysis.srm?.flagged ? `SRM check: FLAGGED (p=${fmtP(currentAnalysis.srm.p)}) - results may be unreliable` : "",
                 ].filter(Boolean)},
                 { heading: "Data", lines: currentAnalysis.armStats.map(a => `${a.name}: ${fmtInt(a.rpv.n)} visitors, ${fmtInt(a.aov.n)} orders, RPV ${fmtMoney(a.rpv.m)}, AOV ${fmtMoney(a.aov.m)}`) },
@@ -3347,7 +3286,7 @@ function PostRevenue({ confidence, twoTailed, k, rows, alloc, setAlloc, setVaria
             <ResultsStateNotice calculated={calculated} kind="analysis" usingDemoOrders={usingDemoOrders} />
             <SrmBanner srm={analysis.srm} />
             <CorrectionsNotice items={revenueAnalysisCorrections({
-              k, corrected, confidence, winsorize, outlierPct, srm: analysis.srm,
+              winsorize, outlierPct, srm: analysis.srm,
             })} />
             {Number.isInteger(days) && days > 0 && days < 14 && (
               <p className="note">
@@ -4439,11 +4378,6 @@ const CSS = `
 .btn-text{background:none;border:0;padding:0;color:var(--purple);font-size:13.5px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;margin:4px 0 12px;}
 [data-theme='dark'] .btn-text{color:var(--purple-bright);}
 .btn-text:hover{text-decoration:underline;}
-.badge-soon{display:block;width:fit-content;background:var(--purple-soft);color:var(--purple);
-  font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-top:4px;
-  text-transform:uppercase;letter-spacing:0.02em;}
-.choice-title .badge-soon{display:inline-block;margin-top:0;margin-left:6px;vertical-align:middle;}
-[data-theme='dark'] .badge-soon{background:var(--purple-soft);color:var(--purple-bright);border:1px solid var(--purple-bright);}
 .animated-fade-in{animation:fadeIn .3s ease-out;}
 @keyframes fadeIn{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:translateY(0);}}
 .choice-row{display:flex;gap:18px;margin-bottom:24px;flex-wrap:wrap;}
@@ -4480,8 +4414,6 @@ const CSS = `
 [data-theme='dark'] .choice-opt-on .choice-desc{color:rgba(0,0,0,0.6) !important;}
 .choice-title{display:block;font-weight:600;font-size:14px;color:var(--navy);margin-bottom:0;}
 .choice-desc{display:none;}
-.choice-disabled{opacity:0.7;cursor:not-allowed;}
-.choice-disabled:hover{border-color:var(--line);}
 .flow-title{font-family:'Plus Jakarta Sans',ui-sans-serif,sans-serif;font-weight:600;
   font-size:18px;margin:0 0 16px;color:var(--navy);letter-spacing:-0.02em;}
 [data-theme='dark'] .flow-title{color:var(--ink);}
@@ -4489,14 +4421,6 @@ const CSS = `
   padding:24px;box-shadow:var(--shadow);margin-bottom:0;}
 [data-theme='dark'] .metric-selector-flow{background:var(--card);border-color:var(--line);}
 .pre-planning-container .two-col{margin-top:0;}
-.coming-soon-placeholder{margin-bottom:24px;padding:16px;background:var(--paper);border:1px dashed var(--line);border-radius:12px;}
-[data-theme='dark'] .coming-soon-placeholder{background:var(--paper);border-color:var(--line);}
-.upload-placeholder{display:flex;flex-direction:column;align-items:center;justify-content:center;
-  gap:10px;padding:30px;border:2px dashed var(--line);border-radius:12px;color:var(--muted);
-  font-size:14px;background:var(--card);transition:all .15s;}
-[data-theme='dark'] .upload-placeholder{background:var(--paper);border-color:var(--line);}
-.upload-placeholder svg{color:var(--purple);opacity:0.6;}
-[data-theme='dark'] .upload-placeholder svg{color:var(--purple-bright);opacity:0.8;}
 .sd-calc-section{margin-bottom:20px;}
 .sd-calc-box{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:16px;margin-top:8px;}
 [data-theme='dark'] .sd-calc-box{background:var(--paper);border-color:var(--line);}
@@ -4654,9 +4578,7 @@ const CSS = `
 }
 .stat-hero{background:var(--grad);border-color:transparent;color:#fff;}
 [data-theme='dark'] .stat-hero{background:var(--purple-bright);color:var(--navy);}
-[data-theme='dark'] .stat-hero{background:var(--purple-bright);color:var(--navy);}
 .stat-hero .stat-label{color:rgba(255,255,255,.85);}
-[data-theme='dark'] .stat-hero .stat-label{color:rgba(0,0,0,0.6);}
 [data-theme='dark'] .stat-hero .stat-label{color:rgba(0,0,0,0.7);}
 .stat-label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;
   color:var(--muted);margin-bottom:5px;}
@@ -4665,6 +4587,7 @@ const CSS = `
 [data-theme='dark'] .stat-num{color:var(--ink);}
 [data-theme='dark'] .stat-hero .stat-num{color:var(--navy);}
 .stat-sub-label{font-size:14px;color:var(--ink);opacity:0.85;margin-top:2px;}
+.stat-hero .stat-sub-label{color:rgba(255,255,255,.9);opacity:1;}
 [data-theme='dark'] .stat-sub-label{color:var(--ink);opacity:0.85;}
 [data-theme='dark'] .stat-hero .stat-sub-label{color:rgba(0,0,0,0.75);}
 @media (max-width:600px){.stat-num{font-size:20px;}}
